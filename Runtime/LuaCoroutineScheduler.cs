@@ -42,7 +42,9 @@ public sealed class LuaCoroutineScheduler {
             m_entries.Add(new CoroutineEntry(coroutine));
             CoroutineEntry mainEntry = m_entries[0];
             ResumeEntry(ref mainEntry);
-            m_entries[0] = mainEntry;
+            if (m_entries.Count > 0 && ReferenceEquals(m_entries[0].Handle, mainEntry.Handle)) {
+                m_entries[0] = mainEntry;
+            }
             return LastError == null;
         }
         catch (InterpreterException ex) {
@@ -92,7 +94,9 @@ public sealed class LuaCoroutineScheduler {
             int index = m_entries.Count - 1;
             CoroutineEntry entry = m_entries[index];
             ResumeEntry(ref entry);
-            m_entries[index] = entry;
+            if (index < m_entries.Count && ReferenceEquals(m_entries[index].Handle, entry.Handle)) {
+                m_entries[index] = entry;
+            }
         }
         m_spawnQueue.Clear();
     }
