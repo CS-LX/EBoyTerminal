@@ -1,0 +1,54 @@
+---
+description: 父仓库 industrial-era-2 仅更新本子模块指针时不应在主仓提交；本仓改动在 EBoyTerminal 内提交推送
+alwaysApply: true
+---
+
+# EBoyTerminal 子模块与父仓库提交约定
+
+本目录是独立 Git 仓库 **[CS-LX/EBoyTerminal](https://github.com/CS-LX/EBoyTerminal)**，作为工业时代 2 主仓 `Addons/EBoyTerminal` 子模块挂载。
+
+## 决策树（AI Agent / 开发者）
+
+```
+功能或文档改动落在 Addons/EBoyTerminal/**
+  → 在【本仓库】git add / commit / push
+  → 不要指望只改主仓 SCIENEW 就能带上本模组变更
+
+主仓 industrial-era-2 的 git status 显示：
+  仅有 Addons/EBoyTerminal（子模块指针 / gitlink）变更
+  且无 SCIENEW、docs、SCIENEW.Tests 等其它文件改动
+  → 【不要】在主仓单独开提交、不要 push 主仓仅为更新指针
+  → 子模块指针漂移可留在工作区，或与主仓其它实质改动一并提交
+
+主仓同时有子模块指针 + 其它文件改动
+  → 主仓提交应包含实质改动；子模块指针是否写入同一提交由人类决定，Agent 默认随功能提交带上指针
+```
+
+## 本仓库职责
+
+| 路径 | 说明 |
+| --- | --- |
+| `Widgets/`、`Dialogs/`、`Components/` 等 | 嘉豪终端实现 |
+| `docs/` | 本模组文档（如 `CodeBoxWidget实现指南.md`） |
+| `EBoyTerminal.csproj`、`modinfo.json` | 构建与包元数据 |
+
+构建后 PostBuild 打包为 `EBoyTerminal.scmod` 部署到游戏 Mods 目录（见主仓 `docs/构建与调试.md`）。
+
+## 父仓库不应单独提交的情形（硬规则）
+
+当且仅当主仓 diff 为：
+
+```text
+modified:   Addons/EBoyTerminal
+（有时显示为 M Addons/EBoyTerminal 或 submodule commit 指针变化）
+```
+
+且 **没有** 其它已暂存或未暂存的实质文件变更时：
+
+- **禁止** 创建仅更新子模块指针的主仓 commit
+- **禁止** 为「同步子模块指针」单独 push 主仓
+- 本模组代码已在 EBoyTerminal 仓库 push 即可
+
+## 与主仓 game-source.mdc 的关系
+
+主仓 `.cursor/rules/game-source.mdc` 对附属模组有相同倾向说明；本文件为 **EBoyTerminal 专用、可随子模块克隆带走** 的明确规则，冲突时以「本模组在子仓库提交」为准。
