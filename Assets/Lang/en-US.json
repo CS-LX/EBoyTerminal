@@ -4,5 +4,8 @@
   },
   "MoonTerminalBlock": {
     "0": "Moon Terminal"
+  },
+  "MoonTerminalWidget": {
+    "1": "Moon Terminal"
   }
 }

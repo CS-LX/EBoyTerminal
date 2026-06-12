@@ -1,0 +1,8 @@
+<ChestWidget xmlns="runtime-namespace:Game">
+	<BevelledRectangleWidget Size="520, 380" BevelSize="3" />
+	<LabelWidget CanvasWidget.Position="12, 14" Text="[MoonTerminalWidget:1]" Color="255, 255, 255, 192"/>
+	<CanvasWidget CanvasWidget.Position="12, 48" Size="496, 320">
+		<BevelledRectangleWidget Size="496, 320" BevelSize="-2" CenterColor="0, 0, 0, 255"/>
+		<TextBoxWidget Name="ScriptText" Color="255, 255, 255" Margin="8, 8" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" MaximumLength="32768"/>
+	</CanvasWidget>
+</ChestWidget>

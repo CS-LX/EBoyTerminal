@@ -7,9 +7,11 @@ namespace EBoyTerminal {
     /// 月之终端占位方块：外观与朝向逻辑同原版 <see cref="ChestBlock"/>，物理属性见 <c>EBoyTerminal.csv</c>（对齐铁块）。
     /// </summary>
     public class MoonTerminalBlock : CubeBlock {
-        public MoonTerminalBlock() => CanBeBuiltIntoFurniture = true;
+        public static int Index = 550;
 
         public override string GetCategory(int value) => IEConstants.BlockCategory.Devices;
+
+        public override bool IsInteractive(SubsystemTerrain subsystemTerrain, int value) => true;
 
         public override int GetFaceTextureSlot(int face, int value) {
             return face switch {
