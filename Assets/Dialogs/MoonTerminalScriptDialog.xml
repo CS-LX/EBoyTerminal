@@ -1,17 +1,23 @@
-<CanvasWidget xmlns="runtime-namespace:Game">
-	<CanvasWidget Size="520, 400" ClampToBounds="true" HorizontalAlignment="Center" VerticalAlignment="Center">
-		<BevelledRectangleWidget BevelSize="3" />
-		<StackPanelWidget Direction="Vertical" HorizontalAlignment="Center" VerticalAlignment="Near" Margin="12, 12">
-			<LabelWidget CanvasWidget.Position="12, 14" Text="[MoonTerminalScriptDialog:1]" Color="255, 255, 255, 192"/>
-			<CanvasWidget Size="496, 300">
-				<BevelledRectangleWidget Size="496, 300" BevelSize="-2" CenterColor="0, 0, 0, 255"/>
-				<TextBoxWidget Name="ScriptText" Color="255, 255, 255" Margin="8, 8" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" MaximumLength="32768"/>
-			</CanvasWidget>
-			<StackPanelWidget Direction="Horizontal" HorizontalAlignment="Center">
-				<BevelledButtonWidget Name="OkButton" Text="[TextBoxDialog:1]" Style="{Styles/ButtonStyle_160x60}" />
-				<CanvasWidget Size="20, 0"/>
-				<BevelledButtonWidget Name="CancelButton" Text="[TextBoxDialog:2]" Style="{Styles/ButtonStyle_160x60}" />
+<CanvasWidget xmlns="runtime-namespace:Game" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+	<StackPanelWidget Direction="Vertical" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+		<CanvasWidget Size="Infinity, 36" HorizontalAlignment="Stretch" VerticalAlignment="Near">
+			<RectangleWidget OutlineColor="0, 0, 0, 0" FillColor="0, 0, 0, 102" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Size="Infinity, Infinity"/>
+			<LabelWidget Name="Title" Text="[MoonTerminalScriptDialog:1]" Color="255, 255, 255, 255" Margin="12, 0" VerticalAlignment="Center" HorizontalAlignment="Near"/>
+			<StackPanelWidget Direction="Horizontal" HorizontalAlignment="Far" VerticalAlignment="Center" Margin="0, 0, 8, 0">
+				<CanvasWidget Size="32, 32">
+					<RectangleWidget Size="20, 20" Subtexture="{Textures/Gui/SaveFill}" FillColor="255, 255, 255, 200" OutlineColor="0, 0, 0, 0" HorizontalAlignment="Center" VerticalAlignment="Center" TextureLinearFilter="true"/>
+					<ClickableWidget Name="SaveButton" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SoundName="Audio/UI/ButtonClick"/>
+				</CanvasWidget>
+				<CanvasWidget Size="4, 0"/>
+				<CanvasWidget Size="32, 32">
+					<RectangleWidget Size="20, 20" Subtexture="{Textures/Gui/CloseLine}" FillColor="255, 255, 255, 200" OutlineColor="0, 0, 0, 0" HorizontalAlignment="Center" VerticalAlignment="Center" TextureLinearFilter="true"/>
+					<ClickableWidget Name="CloseButton" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SoundName="Audio/UI/ButtonClick"/>
+				</CanvasWidget>
 			</StackPanelWidget>
-		</StackPanelWidget>
-	</CanvasWidget>
+		</CanvasWidget>
+		<CanvasWidget Size="Infinity, Infinity" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+			<RectangleWidget OutlineColor="0, 0, 0, 0" FillColor="0, 0, 0, 102" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Size="Infinity, Infinity"/>
+			<CodeBoxWidget xmlns="runtime-namespace:EBoyTerminal" Name="ScriptText" Color="255, 255, 255, 255" Margin="12, 8" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" MaximumLength="32768"/>
+		</CanvasWidget>
+	</StackPanelWidget>
 </CanvasWidget>

@@ -7,22 +7,28 @@ namespace EBoyTerminal {
     public class MoonTerminalScriptDialog : Dialog {
         readonly ComponentMoonTerminal m_component;
 
-        readonly string m_originalText;
+        string m_savedText;
 
-        TextBoxWidget m_scriptText;
+        string m_baseTitle = string.Empty;
 
-        ButtonWidget m_okButton;
+        CodeBoxWidget m_scriptText;
 
-        ButtonWidget m_cancelButton;
+        LabelWidget m_titleWidget;
+
+        ClickableWidget m_saveButton;
+
+        ClickableWidget m_closeButton;
 
         public MoonTerminalScriptDialog(ComponentMoonTerminal component) {
             m_component = component;
-            m_originalText = component.ScriptText ?? string.Empty;
+            m_savedText = component.ScriptText ?? string.Empty;
             XElement node = ContentManager.Get<XElement>("Dialogs/MoonTerminalScriptDialog");
             LoadContents(this, node);
-            m_scriptText = Children.Find<TextBoxWidget>("ScriptText");
-            m_okButton = Children.Find<ButtonWidget>("OkButton");
-            m_cancelButton = Children.Find<ButtonWidget>("CancelButton");
+            m_scriptText = Children.Find<CodeBoxWidget>("ScriptText");
+            m_titleWidget = Children.Find<LabelWidget>("Title");
+            m_saveButton = Children.Find<ClickableWidget>("SaveButton");
+            m_closeButton = Children.Find<ClickableWidget>("CloseButton");
+            m_baseTitle = m_titleWidget.Text;
             m_scriptText.Font = IndustrialModLoader.PixelFont;
             m_scriptText.TextureLinearFilter = false;
             m_scriptText.FontScale = 1f;
@@ -31,29 +37,35 @@ namespace EBoyTerminal {
             m_scriptText.MaximumLinesCount = 512;
             m_scriptText.SwitchTextBoxWhenTabbed = false;
             m_scriptText.IndentAsSpace = true;
-            m_scriptText.Text = m_originalText;
+            m_scriptText.Text = m_savedText;
+            m_scriptText.TextChanged += OnScriptTextChanged;
             m_scriptText.HasFocus = true;
+            UpdateTitle();
+        }
+
+        void OnScriptTextChanged(TextBoxWidget _) => UpdateTitle();
+
+        void UpdateTitle() {
+            bool dirty = m_scriptText.Text != m_savedText;
+            m_titleWidget.Text = dirty ? $"{m_baseTitle} *" : m_baseTitle;
         }
 
         public override void Update() {
-            if (Input.Cancel) {
-                Dismiss(false);
+            if (Input.Cancel || m_closeButton.IsClicked) {
+                Dismiss();
             }
-            else if (Input.Ok) {
-                Dismiss(true);
-            }
-            else if (m_okButton.IsClicked) {
-                Dismiss(true);
-            }
-            else if (m_cancelButton.IsClicked) {
-                Dismiss(false);
+            else if (m_saveButton.IsClicked) {
+                Save();
             }
         }
 
-        void Dismiss(bool save) {
-            if (save) {
-                m_component.ScriptText = m_scriptText.Text;
-            }
+        void Save() {
+            m_savedText = m_scriptText.Text;
+            m_component.ScriptText = m_savedText;
+            UpdateTitle();
+        }
+
+        void Dismiss() {
             DialogsManager.HideDialog(this);
         }
     }
