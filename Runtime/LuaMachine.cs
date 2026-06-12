@@ -16,6 +16,8 @@ public sealed class LuaMachine {
 
     Script? m_script;
 
+    DynValue? m_mainFunc;
+
     Action<string>? m_outputSink;
 
     public string? LastError { get; private set; }
@@ -76,21 +78,21 @@ public sealed class LuaMachine {
         m_spawnQueue.Clear();
         LastError = null;
         if (string.IsNullOrWhiteSpace(source)) {
+            m_mainFunc = null;
             State = LuaMachineState.Stopped;
             return true;
         }
         try {
             string wrapped = $"local function __eboy_main()\n{source}\nend\nreturn __eboy_main";
             DynValue chunkFunc = m_script.LoadString(wrapped, null, chunkName ?? "terminal");
-            DynValue mainFunc = m_script.Call(chunkFunc);
-            DynValue coroutine = m_script.CreateCoroutine(mainFunc);
-            coroutine.Coroutine.AutoYieldCounter = AutoYieldInstructionCount;
-            m_entries.Add(new CoroutineEntry(coroutine));
+            m_mainFunc = m_script.Call(chunkFunc);
+            RecreateMainCoroutine();
             State = LuaMachineState.Ready;
             return LastError == null;
         }
         catch (InterpreterException ex) {
             LastError = ex.DecoratedMessage ?? ex.Message;
+            m_mainFunc = null;
             m_entries.Clear();
             State = LuaMachineState.Error;
             return false;
@@ -100,6 +102,10 @@ public sealed class LuaMachine {
     public bool Start() {
         if (State == LuaMachineState.Running) {
             return true;
+        }
+        if (State == LuaMachineState.Stopped && m_mainFunc != null) {
+            RecreateMainCoroutine();
+            State = LuaMachineState.Ready;
         }
         if (State != LuaMachineState.Ready && State != LuaMachineState.Paused) {
             return false;
@@ -151,8 +157,20 @@ public sealed class LuaMachine {
             }
         }
         if (State == LuaMachineState.Running && m_entries.Count == 0 && m_spawnQueue.Count == 0) {
-            State = LuaMachineState.Stopped;
+            RecreateMainCoroutine();
+            State = LuaMachineState.Ready;
         }
+    }
+
+    void RecreateMainCoroutine() {
+        m_entries.Clear();
+        m_spawnQueue.Clear();
+        if (m_script == null || m_mainFunc == null) {
+            return;
+        }
+        DynValue coroutine = m_script.CreateCoroutine(m_mainFunc);
+        coroutine.Coroutine.AutoYieldCounter = AutoYieldInstructionCount;
+        m_entries.Add(new CoroutineEntry(coroutine));
     }
 
     void FlushSpawnQueue() {

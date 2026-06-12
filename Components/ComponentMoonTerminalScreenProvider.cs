@@ -30,7 +30,12 @@ namespace EBoyTerminal {
 
         public void Draw(Screen screen, Project project, Camera camera, int drawOrder) {
             int visibleLines = CalculateVisibleLineCount(screen);
-            string text = m_terminal.GetScreenText(visibleLines);
+            float screenWidth = (screen.WorldPos2 - screen.WorldPos1).Length();
+            float horizontalScale = TextScale * screen.Edge1.Length();
+            string text = TruncateTextToScreenWidth(
+                m_terminal.GetScreenText(visibleLines),
+                screenWidth,
+                horizontalScale);
             if (string.IsNullOrEmpty(text)) {
                 return;
             }
@@ -48,6 +53,25 @@ namespace EBoyTerminal {
                 return 1;
             }
             return Math.Max(1, (int)Math.Floor(screenHeight / lineHeight));
+        }
+
+        /// <summary>按 <see cref="FontBatch3D"/> 同款度量截断每行，避免用字高代替字宽导致过早截断。</summary>
+        string TruncateTextToScreenWidth(string text, float screenWidth, float horizontalScale) {
+            if (string.IsNullOrEmpty(text)) {
+                return text;
+            }
+            string[] lines = text.Split('\n');
+            for (int i = 0; i < lines.Length; i++) {
+                string line = lines[i];
+                if (line.Length == 0) {
+                    continue;
+                }
+                int fitCount = m_font.FitText(screenWidth, line, horizontalScale, 0f);
+                if (fitCount < line.Length) {
+                    lines[i] = line[..fitCount];
+                }
+            }
+            return string.Join("\n", lines);
         }
 
         public Entity GetEntity() => Entity;

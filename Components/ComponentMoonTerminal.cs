@@ -61,8 +61,27 @@ namespace EBoyTerminal {
 
         public void ClearOutput() => m_outputLines.Clear();
 
-        public void AppendOutput(string line) {
-            m_outputLines.Add(line ?? string.Empty);
+        public void AppendOutput(string text) {
+            text = (text ?? string.Empty).Replace("\r\n", "\n").Replace('\r', '\n');
+            if (text.Length == 0) {
+                AddOutputLine(string.Empty);
+                return;
+            }
+            int lineStart = 0;
+            for (int i = 0; i < text.Length; i++) {
+                if (text[i] != '\n') {
+                    continue;
+                }
+                AddOutputLine(text.Substring(lineStart, i - lineStart));
+                lineStart = i + 1;
+            }
+            if (lineStart < text.Length || text[^1] == '\n') {
+                AddOutputLine(text.Substring(lineStart));
+            }
+        }
+
+        void AddOutputLine(string line) {
+            m_outputLines.Add(line);
             while (m_outputLines.Count > MaxOutputLines) {
                 m_outputLines.RemoveAt(0);
             }
