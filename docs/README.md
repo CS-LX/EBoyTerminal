@@ -36,7 +36,7 @@
 | `EBoyTerminalLoader.cs` | ModLoader 入口 |
 | `EBoyTerminalMod.cs` | 模组运行时初始化 |
 | `Runtime/LuaScriptHost.cs` | MoonSharp Lua 解释器封装（每实体一份） |
-| `Runtime/LuaMachine.cs` | 协作式 Lua 虚拟机：`Load` / `Start` / `Stop` / `Tick`，含 `sleep` / `spawn` / `print` |
+| `Runtime/LuaMachine.cs` | 协作式 Lua 虚拟机：`Load` / `Start` / `Stop` / `Tick`，含 `spawn` / `print`；延迟使用 MoonSharp 原生 `coroutine.yield(seconds)` 或 `coroutine.yield("ticks", n)` |
 | `Components/ComponentLuaScriptHost.cs` | 实体级 Lua 运行时 Component |
 | `Components/ComponentMoonTerminal.cs` | 月之终端：脚本持久化 + 组合 `ComponentLuaScriptHost` |
 | `Components/ComponentMoonTerminalScreenProvider.cs` | 月之终端屏幕输出（`IScreenProviderComponent`，左上角绘字） |

@@ -6,6 +6,8 @@ namespace EBoyTerminal.Runtime;
 /// 主线程协作式 Lua 虚拟机：编译/运行/停止、协程调度与内置 API。
 /// </summary>
 public sealed class LuaMachine {
+    const float SleepEpsilon = 0.000001f;
+
     readonly List<CoroutineEntry> m_entries = new();
 
     readonly List<DynValue> m_spawnQueue = new();
@@ -101,7 +103,7 @@ public sealed class LuaMachine {
             CoroutineEntry entry = m_entries[i];
             if (entry.SleepSecondsRemaining > 0f) {
                 entry.SleepSecondsRemaining -= dt;
-                if (entry.SleepSecondsRemaining > 0f) {
+                if (entry.SleepSecondsRemaining > SleepEpsilon) {
                     m_entries[i] = entry;
                     continue;
                 }
@@ -160,13 +162,16 @@ public sealed class LuaMachine {
             RemoveEntry(entry);
             return;
         }
-        if (result.Type == DataType.YieldRequest) {
-            ApplyYieldRequest(ref entry, result);
-        }
+        ApplyYieldResult(ref entry, result);
     }
 
-    void ApplyYieldRequest(ref CoroutineEntry entry, DynValue result) {
-        DynValue[]? args = result.YieldRequest?.ReturnValues;
+    void ApplyYieldResult(ref CoroutineEntry entry, DynValue result) {
+        DynValue[]? args = result.Type switch {
+            DataType.YieldRequest => result.YieldRequest?.ReturnValues,
+            DataType.Tuple => result.Tuple,
+            DataType.Void or DataType.Nil => null,
+            _ => [result]
+        };
         if (args == null || args.Length == 0) {
             // 裸 coroutine.yield() 和 MoonSharp forced yield 都至少让出到下一帧。
             entry.TicksRemaining = 1;
@@ -204,8 +209,6 @@ public sealed class LuaMachine {
     }
 
     void RegisterBuiltins(Script script) {
-        script.Globals["sleep"] = DynValue.NewCallback(SleepSeconds);
-        script.Globals["sleep_ticks"] = DynValue.NewCallback(SleepTicks);
         script.Globals["spawn"] = DynValue.NewCallback(Spawn);
         script.Globals["print"] = DynValue.NewCallback(Print);
     }
@@ -222,20 +225,6 @@ public sealed class LuaMachine {
         string text = string.Join("\t", args.GetArray().Select(static value => value.ToPrintString()));
         m_outputSink?.Invoke(text);
         return DynValue.Nil;
-    }
-
-    DynValue SleepSeconds(ScriptExecutionContext context, CallbackArguments args) {
-        double seconds = args.AsType(0, "sleep", DataType.Number, false).Number;
-        if (seconds < 0d) {
-            seconds = 0d;
-        }
-        return DynValue.NewYieldReq([DynValue.NewNumber(seconds)]);
-    }
-
-    DynValue SleepTicks(ScriptExecutionContext context, CallbackArguments args) {
-        double ticks = args.AsType(0, "sleep_ticks", DataType.Number, false).Number;
-        int tickCount = Math.Max(0, (int)Math.Round(ticks));
-        return DynValue.NewYieldReq([DynValue.NewString("ticks"), DynValue.NewNumber(tickCount)]);
     }
 
     DynValue Spawn(ScriptExecutionContext context, CallbackArguments args) {
