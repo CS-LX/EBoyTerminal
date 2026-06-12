@@ -51,9 +51,10 @@ jobs:
           dotnet restore ie2/SCIENEW/SCIENEW.csproj
           dotnet restore ie2/Addons/EBoyTerminal/EBoyTerminal.csproj
 
+      # 附属模组 CI 仅需编译期引用 SCIENEW/GEN，跳过 GEN 混淆（ConfuserEx 依赖本机 ref pack 路径）
       - name: Build
         working-directory: ie2/Addons/EBoyTerminal
-        run: dotnet build EBoyTerminal.csproj -c Release --no-restore
+        run: dotnet build EBoyTerminal.csproj -c Release --no-restore -p:ObfuscateGen=false
 
       - name: Pack scmod
         shell: pwsh
