@@ -18,7 +18,11 @@ namespace EBoyTerminal {
         public string ScriptText {
             get => m_scriptText;
             set {
-                m_scriptText = value ?? string.Empty;
+                string text = value ?? string.Empty;
+                if (m_scriptText == text) {
+                    return;
+                }
+                m_scriptText = text;
                 PushScriptToHost();
             }
         }
