@@ -31,11 +31,16 @@
     </None>
   </ItemGroup>
 
-  <!-- 在 industrial-era-2  monorepo 内作为子模块时，可选引用 SCIENEW 以便调用 IE2 API -->
+  <!-- monorepo 内可选：编译期引用 IE2 API；运行时由 modinfo 依赖 com.IndustrialEra2 提供，勿 copy-local。
+       Private=false 同 SCIENEW→RecipaediaEX；另需 DisableTransitiveProjectReferences + ExcludeAssets(contentfiles)，
+       以免经 SCIENEW 传递的 GEN/XamariNES/REX 程序集与资源落入本包（SCIENEW 为单层引用，无此问题）。 -->
+  <PropertyGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\SCIENEW\SCIENEW.csproj')">
+    <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
+  </PropertyGroup>
   <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\SCIENEW\SCIENEW.csproj')">
     <ProjectReference Include="..\..\SCIENEW\SCIENEW.csproj">
       <Private>false</Private>
-      <ExcludeAssets>contentfiles;runtime</ExcludeAssets>
+      <ExcludeAssets>contentfiles</ExcludeAssets>
     </ProjectReference>
   </ItemGroup>
 
@@ -46,16 +51,16 @@
     <None Update="icon.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="EBoyTerminal.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Assets\Lang\zh-CN.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Assets\Lang\en-US.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
-
-  <!-- 附属模组运行时由 com.IndustrialEra2 等依赖提供程序集，勿打入 .scmod -->
-  <Target Name="StripDependencyOutputs" AfterTargets="Build" BeforeTargets="PackMod">
-    <ItemGroup>
-      <_StripFiles Include="$(OutputPath)RecipaediaEX.dll;$(OutputPath)RecipaediaEX.xdb;$(OutputPath)SCIENEW.GEN.dll;$(OutputPath)SCIENEW.dll;$(OutputPath)XamariNES.dll;$(OutputPath)NPinyin.Core.dll;$(OutputPath)ZLinq.dll" />
-    </ItemGroup>
-    <Delete Files="@(_StripFiles)" ContinueOnError="true" />
-    <RemoveDir Directories="$(OutputPath)Assets" ContinueOnError="true" />
-  </Target>
 
   <Target Name="PackMod" AfterTargets="Build">
     <PropertyGroup>

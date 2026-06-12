@@ -12,3 +12,5 @@
 | `EBoyTerminalMod.cs` | 模组运行时初始化 |
 | `Runtime/LuaScriptHost.cs` | MoonSharp Lua 宿主 |
 | `Peripherals/` | IE2 设备外设接口与注册表 |
+| `Blocks/MoonTerminalBlock.cs` | 月之终端占位方块（箱子外观 + 铁块属性） |
+| `EBoyTerminal.csv` | 方块数据表（宿主 `BlocksManager.LoadBlocksData`） |
