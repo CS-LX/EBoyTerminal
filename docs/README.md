@@ -5,6 +5,16 @@
 | [策划案.md](策划案.md) | 模组玩法基调、定位与方向（大方向，非实现细案） |
 | [CodeBoxWidget实现指南.md](CodeBoxWidget实现指南.md) | 脚本编辑器控件重构：FCTB 架构蒸馏 + SC2 落地路径 |
 
+## CI（GitHub Actions）
+
+本仓库为 IE2 附属模组，源码 `using SCIENEW` / `ProjectReference` 依赖 monorepo 内 `SCIENEW` 工程。Workflow 会：
+
+1. 检出 [CS-LX/Industrial-Era-2](https://github.com/CS-LX/Industrial-Era-2)（`NEXT` 分支，`submodules: recursive`）
+2. 用当前 commit 覆盖 `Addons/EBoyTerminal`
+3. 在 `ie2/Addons/EBoyTerminal` 下 `dotnet build` 与打包 `.scmod`
+
+本地 monorepo 开发路径须保持 `industrial-era-2/Addons/EBoyTerminal` 与 `industrial-era-2/SCIENEW` 同级。
+
 ## 代码结构（脚手架）
 
 | 路径 | 说明 |
