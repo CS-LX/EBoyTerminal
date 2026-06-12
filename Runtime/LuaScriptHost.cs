@@ -2,19 +2,58 @@ using MoonSharp.Interpreter;
 
 namespace EBoyTerminal.Runtime;
 
-/// <summary>Lua 脚本宿主（MoonSharp）；后续终端方块与 IE2 外设 API 在此注册。</summary>
+/// <summary>MoonSharp Lua 解释器封装；由 <see cref="ComponentLuaScriptHost"/> 按实体持有实例。</summary>
 public sealed class LuaScriptHost {
     Script? m_script;
 
-    public void Reset() => m_script = new Script(CoreModules.Preset_SoftSandbox);
+    public string? LastError { get; private set; }
 
-    public DynValue Execute(string source, string? chunkName = null) {
-        m_script ??= new Script(CoreModules.Preset_SoftSandbox);
-        return m_script.DoString(source, null, chunkName ?? "terminal");
+    public Script Script {
+        get {
+            m_script ??= CreateScript();
+            return m_script;
+        }
+    }
+
+    public void Reset() {
+        m_script = CreateScript();
+        LastError = null;
+    }
+
+    public bool TryLoad(string source, string? chunkName = null) {
+        if (string.IsNullOrWhiteSpace(source)) {
+            Reset();
+            return true;
+        }
+        try {
+            Reset();
+            Script.DoString(source, null, chunkName ?? "chunk");
+            LastError = null;
+            return true;
+        }
+        catch (InterpreterException ex) {
+            LastError = ex.DecoratedMessage ?? ex.Message;
+            return false;
+        }
+    }
+
+    public bool TryExecute(string source, out DynValue? result, string? chunkName = null) {
+        result = null;
+        try {
+            m_script ??= CreateScript();
+            result = m_script.DoString(source, null, chunkName ?? "chunk");
+            LastError = null;
+            return true;
+        }
+        catch (InterpreterException ex) {
+            LastError = ex.DecoratedMessage ?? ex.Message;
+            return false;
+        }
     }
 
     public void RegisterGlobal(string name, object value) {
-        m_script ??= new Script(CoreModules.Preset_SoftSandbox);
-        m_script.Globals[name] = UserData.Create(value);
+        Script.Globals[name] = UserData.Create(value);
     }
+
+    static Script CreateScript() => new(CoreModules.Preset_SoftSandbox);
 }

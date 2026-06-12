@@ -1,6 +1,5 @@
 using Engine;
 using EBoyTerminal.Peripherals;
-using EBoyTerminal.Runtime;
 
 namespace EBoyTerminal;
 
@@ -10,11 +9,8 @@ public static class EBoyTerminalMod {
 
     public static PeripheralRegistry Peripherals { get; } = new();
 
-    public static LuaScriptHost ScriptHost { get; } = new();
-
     public static void Initialize() {
         Peripherals.Clear();
-        ScriptHost.Reset();
-        Log.Information("[EBoyTerminal] runtime scaffold ready (Lua via MoonSharp).");
+        Log.Information("[EBoyTerminal] runtime scaffold ready (per-entity Lua via ComponentLuaScriptHost).");
     }
 }

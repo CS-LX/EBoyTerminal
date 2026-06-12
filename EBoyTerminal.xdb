@@ -3,6 +3,9 @@
 	<Folder Name="Gameplay" Guid="eb0f0001-acc9-4128-9b99-a5acf1de1fbb">
 		<EntityTemplate Name="MoonTerminal" Guid="eb0f0002-d37d-455f-9a43-803260a915a9">
 			<MemberComponentTemplate Name="BlockEntity" Guid="eb0f0002-96bc-4f0a-afa1-25e329cabd17" InheritanceParent="09a85cba-d94e-41b8-9497-f20ed942c17e" />
+			<MemberComponentTemplate Name="LuaScriptHost" Guid="eb0f0003-7c4a-4b1e-9f2a-6d8e5f0a1b2c" InheritanceParent="b05700ed-7e4e-4679-98f5-b597f421496b">
+				<Parameter Name="Class" Guid="eb0f0003-1a2b-4c3d-8e5f-901234567890" Value="EBoyTerminal.ComponentLuaScriptHost" Type="string" />
+			</MemberComponentTemplate>
 			<MemberComponentTemplate Name="MoonTerminal" Guid="eb0f0002-dfe9-4331-900e-4c5f3ce25348" InheritanceParent="b05700ed-7e4e-4679-98f5-b597f421496b">
 				<Parameter Name="Class" Guid="eb0f0002-1d3c-467e-81bc-1796f686be51" Value="EBoyTerminal.ComponentMoonTerminal" Type="string" />
 			</MemberComponentTemplate>
