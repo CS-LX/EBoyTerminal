@@ -17,6 +17,10 @@ namespace EBoyTerminal {
 
         ClickableWidget m_saveButton;
 
+        ClickableWidget m_runButton;
+
+        ClickableWidget m_stopButton;
+
         ClickableWidget m_closeButton;
 
         public MoonTerminalScriptDialog(ComponentMoonTerminal component) {
@@ -27,6 +31,8 @@ namespace EBoyTerminal {
             m_scriptText = Children.Find<CodeBoxWidget>("ScriptText");
             m_titleWidget = Children.Find<LabelWidget>("Title");
             m_saveButton = Children.Find<ClickableWidget>("SaveButton");
+            m_runButton = Children.Find<ClickableWidget>("RunButton");
+            m_stopButton = Children.Find<ClickableWidget>("StopButton");
             m_closeButton = Children.Find<ClickableWidget>("CloseButton");
             m_baseTitle = m_titleWidget.Text;
             m_scriptText.Font = IndustrialModLoader.PixelFont;
@@ -47,7 +53,8 @@ namespace EBoyTerminal {
 
         void UpdateTitle() {
             bool dirty = m_scriptText.Text != m_savedText;
-            m_titleWidget.Text = dirty ? $"{m_baseTitle} *" : m_baseTitle;
+            string status = m_component.LuaState.ToString();
+            m_titleWidget.Text = dirty ? $"{m_baseTitle} [{status}] *" : $"{m_baseTitle} [{status}]";
         }
 
         public override void Update() {
@@ -56,6 +63,15 @@ namespace EBoyTerminal {
             }
             else if (m_saveButton.IsClicked) {
                 Save();
+            }
+            else if (m_runButton.IsClicked) {
+                Save();
+                m_component.StartScript();
+                UpdateTitle();
+            }
+            else if (m_stopButton.IsClicked) {
+                m_component.StopScript();
+                UpdateTitle();
             }
         }
 

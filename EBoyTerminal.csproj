@@ -74,7 +74,7 @@
     </None>
   </ItemGroup>
 
-  <Target Name="PackMod" AfterTargets="Build">
+  <Target Name="PackMod" AfterTargets="Build" Condition="'$(EboyTerminalSkipPack)' != 'true'">
     <PropertyGroup>
       <_TargetDirSafe>$(TargetDir.TrimEnd('\'))</_TargetDirSafe>
     </PropertyGroup>

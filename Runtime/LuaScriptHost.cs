@@ -12,6 +12,8 @@ public sealed class LuaScriptHost {
 
     public LuaCoroutineScheduler Scheduler => m_scheduler;
 
+    public LuaMachineState State => m_scheduler.State;
+
     public Script Script {
         get {
             m_script ??= CreateScript();
@@ -28,7 +30,15 @@ public sealed class LuaScriptHost {
 
     public bool TryLoad(string source, string? chunkName = null) {
         Reset();
-        return m_scheduler.StartMainSource(source, chunkName);
+        return m_scheduler.LoadMainSource(source, chunkName);
+    }
+
+    public bool Start() {
+        return m_scheduler.Start();
+    }
+
+    public void Stop() {
+        m_scheduler.Stop();
     }
 
     public void Tick(float dt) {

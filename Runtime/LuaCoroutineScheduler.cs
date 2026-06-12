@@ -14,17 +14,27 @@ public sealed class LuaCoroutineScheduler {
 
     public string? LastError { get; private set; }
 
+    public LuaMachineState State { get; private set; } = LuaMachineState.Stopped;
+
     public int ActiveCoroutineCount => m_entries.Count;
+
+    /// <summary>MoonSharp 自动让出的指令数；值越小越不容易卡帧，但总吞吐也越低。</summary>
+    public int AutoYieldInstructionCount { get; set; } = 8000;
+
+    /// <summary>单帧最多恢复多少个协程，避免大量 <c>spawn</c> 同帧堆积。</summary>
+    public int MaxResumesPerTick { get; set; } = 64;
 
     public void Bind(Script script) {
         m_script = script;
         m_entries.Clear();
         m_spawnQueue.Clear();
         LastError = null;
+        State = LuaMachineState.Stopped;
         RegisterBuiltins(script);
     }
 
-    public bool StartMainSource(string source, string? chunkName) {
+    /// <summary>只编译玩家脚本并准备主协程；不会立即执行任何玩家代码。</summary>
+    public bool LoadMainSource(string source, string? chunkName) {
         if (m_script == null) {
             return false;
         }
@@ -32,35 +42,52 @@ public sealed class LuaCoroutineScheduler {
         m_spawnQueue.Clear();
         LastError = null;
         if (string.IsNullOrWhiteSpace(source)) {
+            State = LuaMachineState.Stopped;
             return true;
         }
         try {
             string wrapped = $"local function __eboy_main()\n{source}\nend\nreturn __eboy_main";
-            DynValue mainFunc = m_script.LoadString(wrapped, null, chunkName ?? "terminal");
+            DynValue chunkFunc = m_script.LoadString(wrapped, null, chunkName ?? "terminal");
+            DynValue mainFunc = m_script.Call(chunkFunc);
             DynValue coroutine = m_script.CreateCoroutine(mainFunc);
-            coroutine.Coroutine.AutoYieldCounter = 8000;
+            coroutine.Coroutine.AutoYieldCounter = AutoYieldInstructionCount;
             m_entries.Add(new CoroutineEntry(coroutine));
-            CoroutineEntry mainEntry = m_entries[0];
-            ResumeEntry(ref mainEntry);
-            if (m_entries.Count > 0 && ReferenceEquals(m_entries[0].Handle, mainEntry.Handle)) {
-                m_entries[0] = mainEntry;
-            }
+            State = LuaMachineState.Ready;
             return LastError == null;
         }
         catch (InterpreterException ex) {
             LastError = ex.DecoratedMessage ?? ex.Message;
             m_entries.Clear();
+            State = LuaMachineState.Error;
             return false;
         }
     }
 
+    public bool Start() {
+        if (State == LuaMachineState.Running) {
+            return true;
+        }
+        if (State != LuaMachineState.Ready) {
+            return false;
+        }
+        State = LuaMachineState.Running;
+        return true;
+    }
+
+    public void Stop() {
+        m_entries.Clear();
+        m_spawnQueue.Clear();
+        State = LuaMachineState.Stopped;
+    }
+
     /// <summary>每帧调用一次；<paramref name="dt"/> 为秒，用于 <c>sleep(seconds)</c>。</summary>
     public void Tick(float dt) {
-        if (m_script == null || (m_entries.Count == 0 && m_spawnQueue.Count == 0)) {
+        if (m_script == null || State != LuaMachineState.Running) {
             return;
         }
         FlushSpawnQueue();
-        for (int i = m_entries.Count - 1; i >= 0; i--) {
+        int resumesRemaining = Math.Max(1, MaxResumesPerTick);
+        for (int i = m_entries.Count - 1; i >= 0 && resumesRemaining > 0; i--) {
             CoroutineEntry entry = m_entries[i];
             if (entry.SleepSecondsRemaining > 0f) {
                 entry.SleepSecondsRemaining -= dt;
@@ -77,12 +104,15 @@ public sealed class LuaCoroutineScheduler {
                     continue;
                 }
             }
+            resumesRemaining--;
             ResumeEntry(ref entry);
             if (i < m_entries.Count && ReferenceEquals(m_entries[i].Handle, entry.Handle)) {
                 m_entries[i] = entry;
             }
         }
-        FlushSpawnQueue();
+        if (State == LuaMachineState.Running && m_entries.Count == 0 && m_spawnQueue.Count == 0) {
+            State = LuaMachineState.Stopped;
+        }
     }
 
     void FlushSpawnQueue() {
@@ -107,14 +137,11 @@ public sealed class LuaCoroutineScheduler {
         }
         try {
             DynValue result = entry.Handle.Coroutine.Resume();
-            while (result.Type == DataType.YieldRequest && result.YieldRequest is { Forced: true }) {
-                result = entry.Handle.Coroutine.Resume();
-            }
             ProcessResumeResult(ref entry, result);
         }
         catch (InterpreterException ex) {
             LastError = ex.DecoratedMessage ?? ex.Message;
-            RemoveEntry(entry);
+            Fail();
         }
     }
 
@@ -126,21 +153,35 @@ public sealed class LuaCoroutineScheduler {
         if (result.Type == DataType.YieldRequest) {
             ApplyYieldRequest(ref entry, result);
         }
-        // Lua coroutine.yield(...)：下一帧再继续，避免单帧占满 CPU。
     }
 
     void ApplyYieldRequest(ref CoroutineEntry entry, DynValue result) {
         DynValue[]? args = result.YieldRequest?.ReturnValues;
         if (args == null || args.Length == 0) {
+            // 裸 coroutine.yield() 和 MoonSharp forced yield 都至少让出到下一帧。
+            entry.TicksRemaining = 1;
+            entry.SleepSecondsRemaining = 0f;
             return;
         }
         if (args[0].Type == DataType.String && args[0].String == "ticks") {
-            entry.TicksRemaining = Math.Max(0, (int)args[1].Number);
+            double ticks = args.Length > 1 && args[1].Type == DataType.Number ? args[1].Number : 1d;
+            entry.TicksRemaining = Math.Max(0, (int)Math.Round(ticks));
+            entry.SleepSecondsRemaining = 0f;
+            return;
+        }
+        if (args[0].Type != DataType.Number) {
+            entry.TicksRemaining = 1;
             entry.SleepSecondsRemaining = 0f;
             return;
         }
         entry.SleepSecondsRemaining = Math.Max(0f, (float)args[0].Number);
         entry.TicksRemaining = 0;
+    }
+
+    void Fail() {
+        m_entries.Clear();
+        m_spawnQueue.Clear();
+        State = LuaMachineState.Error;
     }
 
     void RemoveEntry(CoroutineEntry entry) {

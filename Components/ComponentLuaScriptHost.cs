@@ -19,10 +19,17 @@ namespace EBoyTerminal {
 
         public LuaScriptHost Host => m_host;
 
+        public LuaMachineState State => m_host.State;
+
+        /// <summary>重新编译脚本并保持停止/待运行状态；不会在 Load 或保存时同步执行玩家代码。</summary>
         public void ReloadFromSource(string source) {
             m_sourceText = source ?? string.Empty;
             m_host.TryLoad(m_sourceText, GetChunkName());
         }
+
+        public bool Start() => m_host.Start();
+
+        public void Stop() => m_host.Stop();
 
         public void Update(float dt) {
             m_host.Tick(dt);
