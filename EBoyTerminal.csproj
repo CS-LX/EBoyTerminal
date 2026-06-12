@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DefineConstants>API18</DefineConstants>
+    <LangVersion>preview</LangVersion>
+    <AssemblyName>EBoyTerminal</AssemblyName>
+    <RootNamespace>EBoyTerminal</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="tools\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SurvivalcraftAPI.Survivalcraft" Version="1.9.2" />
+  </ItemGroup>
+
+  <!-- 在 industrial-era-2  monorepo 内作为子模块时，可选引用 SCIENEW 以便调用 IE2 API -->
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\SCIENEW\SCIENEW.csproj')">
+    <ProjectReference Include="..\..\SCIENEW\SCIENEW.csproj">
+      <Private>false</Private>
+      <ExcludeAssets>contentfiles;runtime</ExcludeAssets>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="modinfo.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="icon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- 附属模组运行时由 com.IndustrialEra2 等依赖提供程序集，勿打入 .scmod -->
+  <Target Name="StripDependencyOutputs" AfterTargets="Build" BeforeTargets="PackMod">
+    <ItemGroup>
+      <_StripFiles Include="$(OutputPath)RecipaediaEX.dll;$(OutputPath)RecipaediaEX.xdb;$(OutputPath)SCIENEW.GEN.dll;$(OutputPath)SCIENEW.dll;$(OutputPath)XamariNES.dll;$(OutputPath)NPinyin.Core.dll;$(OutputPath)ZLinq.dll" />
+    </ItemGroup>
+    <Delete Files="@(_StripFiles)" ContinueOnError="true" />
+    <RemoveDir Directories="$(OutputPath)Assets" ContinueOnError="true" />
+  </Target>
+
+  <Target Name="PackMod" AfterTargets="Build">
+    <PropertyGroup>
+      <_TargetDirSafe>$(TargetDir.TrimEnd('\'))</_TargetDirSafe>
+    </PropertyGroup>
+    <Message Text="[PackMod] Target fired. TargetDir=$(_TargetDirSafe)" Importance="High" />
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)tools\pack.ps1&quot; -BuildOutputDir &quot;$(_TargetDirSafe)&quot; -Configuration &quot;$(Configuration)&quot;" />
+  </Target>
+</Project>

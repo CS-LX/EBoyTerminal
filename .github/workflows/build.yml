@@ -1,0 +1,40 @@
+name: Build
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore EBoyTerminal.csproj
+
+      - name: Build
+        run: dotnet build EBoyTerminal.csproj -c Release --no-restore
+
+      - name: Pack scmod
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:GITHUB_WORKSPACE "bin/Release/net10.0"
+          $artifact = Join-Path $env:RUNNER_TEMP "eboy-terminal-artifacts"
+          New-Item -ItemType Directory -Path $artifact -Force | Out-Null
+          & (Join-Path $env:GITHUB_WORKSPACE "tools/pack.ps1") `
+            -BuildOutputDir $out `
+            -Configuration Release `
+            -ArtifactDir $artifact
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EBoyTerminal-scmod
+          path: ${{ runner.temp }}/eboy-terminal-artifacts/*.scmod
