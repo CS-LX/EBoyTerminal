@@ -1,0 +1,17 @@
+<CanvasWidget xmlns="runtime-namespace:Game">
+	<CanvasWidget Size="520, 400" ClampToBounds="true" HorizontalAlignment="Center" VerticalAlignment="Center">
+		<BevelledRectangleWidget BevelSize="3" />
+		<StackPanelWidget Direction="Vertical" HorizontalAlignment="Center" VerticalAlignment="Near" Margin="12, 12">
+			<LabelWidget CanvasWidget.Position="12, 14" Text="[MoonTerminalScriptDialog:1]" Color="255, 255, 255, 192"/>
+			<CanvasWidget Size="496, 300">
+				<BevelledRectangleWidget Size="496, 300" BevelSize="-2" CenterColor="0, 0, 0, 255"/>
+				<TextBoxWidget Name="ScriptText" Color="255, 255, 255" Margin="8, 8" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" MaximumLength="32768"/>
+			</CanvasWidget>
+			<StackPanelWidget Direction="Horizontal" HorizontalAlignment="Center">
+				<BevelledButtonWidget Name="OkButton" Text="[TextBoxDialog:1]" Style="{Styles/ButtonStyle_160x60}" />
+				<CanvasWidget Size="20, 0"/>
+				<BevelledButtonWidget Name="CancelButton" Text="[TextBoxDialog:2]" Style="{Styles/ButtonStyle_160x60}" />
+			</StackPanelWidget>
+		</StackPanelWidget>
+	</CanvasWidget>
+</CanvasWidget>

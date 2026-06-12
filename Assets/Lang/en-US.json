@@ -5,7 +5,9 @@
   "MoonTerminalBlock": {
     "0": "Moon Terminal"
   },
-  "MoonTerminalWidget": {
-    "1": "Moon Terminal"
+  "ContentWidgets": {
+    "MoonTerminalScriptDialog": {
+      "1": "Moon Terminal"
+    }
   }
 }

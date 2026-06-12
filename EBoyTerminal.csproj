@@ -57,7 +57,7 @@
     <None Update="EBoyTerminal.xdb">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Assets\Widgets\MoonTerminalWidget.xml">
+    <None Update="Assets\Dialogs\MoonTerminalScriptDialog.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Assets\Lang\zh-CN.json">

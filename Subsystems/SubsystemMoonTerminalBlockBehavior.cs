@@ -39,7 +39,7 @@ namespace EBoyTerminal {
                 return false;
             }
             ComponentMoonTerminal terminal = blockEntity.Entity.FindComponent<ComponentMoonTerminal>(throwOnError: true);
-            componentMiner.ComponentPlayer.ComponentGui.ModalPanelWidget = new MoonTerminalWidget(terminal);
+            DialogsManager.ShowDialog(componentMiner.ComponentPlayer.GuiWidget, new MoonTerminalScriptDialog(terminal));
             AudioManager.PlaySound("Audio/UI/ButtonClick", 1f, 0f, 0f);
             return true;
         }
