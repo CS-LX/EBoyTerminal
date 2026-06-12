@@ -1,5 +1,6 @@
 using Engine;
 using Game;
+using SCIENEW;
 
 namespace EBoyTerminal {
     /// <summary>
@@ -7,6 +8,8 @@ namespace EBoyTerminal {
     /// </summary>
     public class MoonTerminalBlock : CubeBlock {
         public MoonTerminalBlock() => CanBeBuiltIntoFurniture = true;
+
+        public override string GetCategory(int value) => IEConstants.BlockCategory.Devices;
 
         public override int GetFaceTextureSlot(int face, int value) {
             return face switch {
