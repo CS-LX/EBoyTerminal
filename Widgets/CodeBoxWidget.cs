@@ -14,12 +14,54 @@ namespace EBoyTerminal {
         const float ScrollBarMinThumbLength = 16f;
         static readonly Color ScrollBarTrackColor = new(0, 0, 0, 80);
         static readonly Color ScrollBarThumbColor = new(220, 220, 220, 160);
+        public enum CodeStyle {
+            Normal,
+            Keyword,
+            String,
+            Comment,
+            Number,
+            Function
+        }
+
+        public interface ICodeSyntaxHighlighter {
+            CodeStyle[] HighlightLine(string line);
+
+            Color GetColor(CodeStyle style, Color defaultColor);
+        }
+
+        sealed class PlainCodeSyntaxHighlighter : ICodeSyntaxHighlighter {
+            public static readonly PlainCodeSyntaxHighlighter Instance = new();
+
+            public CodeStyle[] HighlightLine(string line) {
+                return new CodeStyle[line.Length];
+            }
+
+            public Color GetColor(CodeStyle style, Color defaultColor) {
+                return defaultColor;
+            }
+        }
 
         public float ScrollY { get; set; }
 
         public bool ShowLineNumbers { get; set; } = true;
 
         public Color LineNumberColor { get; set; } = new(160, 160, 160, 255);
+
+        public Color CurrentLineBackgroundColor { get; set; } = new(255, 255, 255, 24);
+
+        public Color BracketHighlightColor { get; set; } = new(255, 220, 64, 96);
+
+        public Color KeywordColor { get; set; } = new(104, 168, 255, 255);
+
+        public Color StringColor { get; set; } = new(212, 170, 128, 255);
+
+        public Color CommentColor { get; set; } = new(120, 170, 120, 255);
+
+        public Color NumberColor { get; set; } = new(180, 220, 180, 255);
+
+        public Color FunctionColor { get; set; } = new(230, 210, 128, 255);
+
+        public ICodeSyntaxHighlighter SyntaxHighlighter { get; set; } = PlainCodeSyntaxHighlighter.Instance;
 
         public float LineNumberGutterWidth => ShowLineNumbers ? CalculateLineNumberGutterWidth() : 0f;
 
@@ -256,10 +298,22 @@ namespace EBoyTerminal {
             Vector2 currentDrawPosition = new(gutterWidth, lineHeight / 2f);
 
             string[] lines = textToDraw.Split('\n');
+            int caretLineIndex = CalculateLineIndex(caretIndex, lines);
+            (int openBracket, int closeBracket)? bracketMatch = FindMatchingBracket();
             int charIndex = 0;
             for (int i = 0; i < lines.Length; i++) {
                 string line = lines[i];
                 float y = lineHeight / 2f + i * lineHeight;
+                CodeStyle[] lineStyles = SyntaxHighlighter.HighlightLine(line);
+                if (i == caretLineIndex && CurrentLineBackgroundColor.A > 0) {
+                    Vector2 textAreaSize = CalculateTextAreaSize();
+                    flatBatch.QueueQuad(
+                        new Vector2(gutterWidth + Scroll, i * lineHeight),
+                        new Vector2(gutterWidth + Scroll + textAreaSize.X, (i + 1) * lineHeight),
+                        0f,
+                        CurrentLineBackgroundColor
+                    );
+                }
                 if (ShowLineNumbers) {
                     lineNumberBatch.QueueText(
                         (i + 1).ToString(),
@@ -296,7 +350,7 @@ namespace EBoyTerminal {
                 if (charIndex <= caretIndex
                     && charIndex + line.Length >= caretIndex) {
                     string[] split = SplitStringAt(line, caretIndex - charIndex);
-                    drawItems.Add(new NormalDrawItem(line, 0, split[0].Length, fontBatch, FontScale, FontSpacing, Color));
+                    drawItems.Add(new StyledTextDrawItem(line, 0, split[0].Length, fontBatch, FontScale, FontSpacing, Color, lineStyles, this));
                     if (SelectionLength == 0
                         && FocusedTextBox == this
                         && ((Time.RealTime - FocusStartTime - 0.4) % 1.0 <= 0.3f || (Time.RealTime - FocusStartTime - 0.4) % 1.0 >= 0.8f)) {
@@ -316,16 +370,17 @@ namespace EBoyTerminal {
                     }
                     drawItems.Add(new CompositionTextDrawItem(CompositionText ?? "", fontBatch, underlineFlatBatch, FontScale, FontSpacing, Color));
                     if (split.Length > 1) {
-                        drawItems.Add(new NormalDrawItem(line, split[0].Length, split[1].Length, fontBatch, FontScale, FontSpacing, Color));
+                        drawItems.Add(new StyledTextDrawItem(line, split[0].Length, split[1].Length, fontBatch, FontScale, FontSpacing, Color, lineStyles, this));
                     }
                 }
                 else {
-                    drawItems.Add(new NormalDrawItem(textToDraw, charIndex, line.Length, fontBatch, FontScale, FontSpacing, Color));
+                    drawItems.Add(new StyledTextDrawItem(line, 0, line.Length, fontBatch, FontScale, FontSpacing, Color, lineStyles, this));
                 }
                 drawItems.Add(new EndOfLineDrawItem(LineNumberGutterWidth, Font, FontSpacing, FontScale));
                 charIndex += line.Length + 1;
             }
 
+            DrawBracketMatch(flatBatch, bracketMatch, textToDraw);
             foreach (TextDrawItem drawItem in drawItems) {
                 drawItem.Draw(ref currentDrawPosition);
             }
@@ -415,6 +470,130 @@ namespace EBoyTerminal {
             if (!string.IsNullOrEmpty(CompositionText)) {
                 x += Font.MeasureText(CompositionText, 0, CompositionTextCaret, new Vector2(FontScale), FontSpacing).X;
             }
+            return new Vector2(x, lineIndex * CalculateLineHeight());
+        }
+
+        int CalculateLineIndex(int expandedTextIndex, string[] expandedLines) {
+            int position = 0;
+            for (int i = 0; i < expandedLines.Length; i++) {
+                int lineEnd = position + expandedLines[i].Length;
+                if (expandedTextIndex <= lineEnd) {
+                    return i;
+                }
+                position = lineEnd + 1;
+            }
+            return Math.Max(0, expandedLines.Length - 1);
+        }
+
+        public Color GetSyntaxColor(CodeStyle style, Color defaultColor) {
+            Color configuredColor = style switch {
+                CodeStyle.Keyword => KeywordColor,
+                CodeStyle.String => StringColor,
+                CodeStyle.Comment => CommentColor,
+                CodeStyle.Number => NumberColor,
+                CodeStyle.Function => FunctionColor,
+                _ => defaultColor
+            };
+            return SyntaxHighlighter.GetColor(style, configuredColor);
+        }
+
+        (int openBracket, int closeBracket)? FindMatchingBracket() {
+            if (Text.Length == 0) {
+                return null;
+            }
+            int bracketIndex = -1;
+            char bracket = '\0';
+            if (Caret < Text.Length && IsBracket(Text[Caret])) {
+                bracketIndex = Caret;
+                bracket = Text[Caret];
+            }
+            else if (Caret > 0 && IsBracket(Text[Caret - 1])) {
+                bracketIndex = Caret - 1;
+                bracket = Text[Caret - 1];
+            }
+            if (bracketIndex < 0) {
+                return null;
+            }
+
+            char pair = GetBracketPair(bracket);
+            int direction = IsOpeningBracket(bracket) ? 1 : -1;
+            int depth = 0;
+            for (int i = bracketIndex; i >= 0 && i < Text.Length; i += direction) {
+                char c = Text[i];
+                if (c == bracket) {
+                    depth++;
+                }
+                else if (c == pair) {
+                    depth--;
+                    if (depth == 0) {
+                        return direction > 0 ? (bracketIndex, i) : (i, bracketIndex);
+                    }
+                }
+            }
+            return null;
+        }
+
+        static bool IsBracket(char c) {
+            return c is '(' or ')' or '[' or ']' or '{' or '}';
+        }
+
+        static bool IsOpeningBracket(char c) {
+            return c is '(' or '[' or '{';
+        }
+
+        static char GetBracketPair(char c) {
+            return c switch {
+                '(' => ')',
+                ')' => '(',
+                '[' => ']',
+                ']' => '[',
+                '{' => '}',
+                '}' => '{',
+                _ => '\0'
+            };
+        }
+
+        void DrawBracketMatch(FlatBatch2D flatBatch, (int openBracket, int closeBracket)? bracketMatch, string expandedText) {
+            if (!bracketMatch.HasValue || BracketHighlightColor.A == 0) {
+                return;
+            }
+            DrawBracketHighlight(flatBatch, CalculateExpandedTextIndex(bracketMatch.Value.openBracket), expandedText);
+            DrawBracketHighlight(flatBatch, CalculateExpandedTextIndex(bracketMatch.Value.closeBracket), expandedText);
+        }
+
+        int CalculateExpandedTextIndex(int rawIndex) {
+            int expandedIndex = 0;
+            int limit = Math.Clamp(rawIndex, 0, Text.Length);
+            for (int i = 0; i < limit; i++) {
+                expandedIndex += Text[i] == '\t' ? IndentWidth : 1;
+            }
+            return expandedIndex;
+        }
+
+        void DrawBracketHighlight(FlatBatch2D flatBatch, int expandedIndex, string expandedText) {
+            Vector2 position = CalculateExpandedTextPosition(expandedIndex, expandedText);
+            char c = expandedIndex >= 0 && expandedIndex < expandedText.Length ? expandedText[expandedIndex] : ' ';
+            float width = Math.Max(4f, Font.MeasureText(c.ToString(), new Vector2(FontScale), FontSpacing).X);
+            flatBatch.QueueQuad(
+                new Vector2(LineNumberGutterWidth + position.X, position.Y),
+                new Vector2(LineNumberGutterWidth + position.X + width, position.Y + CalculateLineHeight()),
+                0f,
+                BracketHighlightColor
+            );
+        }
+
+        Vector2 CalculateExpandedTextPosition(int expandedIndex, string expandedText) {
+            int lineStart = 0;
+            int lineIndex = 0;
+            for (int i = 0; i < expandedIndex && i < expandedText.Length; i++) {
+                if (expandedText[i] == '\n') {
+                    lineIndex++;
+                    lineStart = i + 1;
+                }
+            }
+            int lineLength = Math.Max(0, Math.Min(expandedIndex, expandedText.Length) - lineStart);
+            string linePrefix = expandedText.Substring(lineStart, lineLength);
+            float x = Font.MeasureText(linePrefix, new Vector2(FontScale), FontSpacing).X;
             return new Vector2(x, lineIndex * CalculateLineHeight());
         }
 
@@ -513,6 +692,57 @@ namespace EBoyTerminal {
             public override void Draw(ref Vector2 position) {
                 position.X = x;
                 position.Y += font.GlyphHeight * font.Scale * fontScale + fontSpacing.Y;
+            }
+        }
+
+        public class StyledTextDrawItem(string fullText,
+            int start,
+            int length,
+            FontBatch2D fontBatch,
+            float fontScale,
+            Vector2 fontSpacing,
+            Color defaultColor,
+            CodeStyle[] styles,
+            CodeBoxWidget owner) : TextDrawItem {
+            public override void Draw(ref Vector2 position) {
+                if (length == 0) {
+                    return;
+                }
+
+                int end = Math.Min(fullText.Length, start + length);
+                int runStart = start;
+                CodeStyle currentStyle = GetStyle(runStart);
+                for (int i = start + 1; i <= end; i++) {
+                    CodeStyle nextStyle = i < end ? GetStyle(i) : currentStyle;
+                    if (i == end || nextStyle != currentStyle) {
+                        QueueRun(ref position, runStart, i - runStart, currentStyle);
+                        runStart = i;
+                        currentStyle = nextStyle;
+                    }
+                }
+            }
+
+            CodeStyle GetStyle(int index) {
+                return index >= 0 && index < styles.Length ? styles[index] : CodeStyle.Normal;
+            }
+
+            void QueueRun(ref Vector2 position, int runStart, int runLength, CodeStyle style) {
+                if (runLength <= 0) {
+                    return;
+                }
+                BitmapFont font = fontBatch.Font;
+                string text = fullText.Substring(runStart, runLength);
+                Vector2 size = font.MeasureText(text, new Vector2(fontScale), fontSpacing);
+                fontBatch.QueueText(
+                    text,
+                    position,
+                    0,
+                    owner.GetSyntaxColor(style, defaultColor),
+                    TextAnchor.VerticalCenter,
+                    new Vector2(fontScale),
+                    fontSpacing
+                );
+                position.X += size.X;
             }
         }
     }

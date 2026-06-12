@@ -14,6 +14,7 @@
 | `Runtime/LuaScriptHost.cs` | MoonSharp Lua 宿主 |
 | `Peripherals/` | IE2 设备外设接口与注册表 |
 | `Blocks/MoonTerminalBlock.cs` | 月之终端占位方块（箱子外观 + 铁块属性） |
-| `Widgets/CodeBoxWidget.cs` | 脚本多行编辑框（待重构：行号 + Lua 高亮） |
+| `Widgets/CodeBoxWidget.cs` | 通用代码编辑框（行号、滚动、可选语法高亮） |
+| `Widgets/LuaCodeBoxWidget.cs` | Lua 语法高亮版 `CodeBoxWidget` |
 | `Dialogs/MoonTerminalScriptDialog.cs` | 终端脚本编辑对话框 |
 | `EBoyTerminal.csv` | 方块数据表（宿主 `BlocksManager.LoadBlocksData`） |

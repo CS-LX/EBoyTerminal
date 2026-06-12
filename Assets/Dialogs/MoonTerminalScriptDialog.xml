@@ -17,7 +17,7 @@
 		</CanvasWidget>
 		<CanvasWidget Size="Infinity, Infinity" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
 			<RectangleWidget OutlineColor="0, 0, 0, 0" FillColor="0, 0, 0, 102" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Size="Infinity, Infinity"/>
-			<CodeBoxWidget xmlns="runtime-namespace:EBoyTerminal" Name="ScriptText" Color="255, 255, 255, 255" Margin="12, 8" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" MaximumLength="32768"/>
+			<LuaCodeBoxWidget xmlns="runtime-namespace:EBoyTerminal" Name="ScriptText" Color="255, 255, 255, 255" Margin="12, 8" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" MaximumLength="32768"/>
 		</CanvasWidget>
 	</StackPanelWidget>
 </CanvasWidget>

@@ -289,31 +289,31 @@ x = LeftIndent + Paddings.Left + (place.iChar - wrapStart) * CharWidth - Horizon
 | `AutoScroll` / `VerticalScroll` | 自管 `float ScrollY`，在 `Draw_` 与 `CalculateClickedCharacterIndex` 中减去 |
 | `Invalidate()` | 无需；`IsDrawRequired = true` 每帧会画 |
 
-### 4.1 推荐类结构（重构目标）
+### 4.1 当前类结构（已实现）
 
 ```
-CodeBoxWidget : TextBoxWidget   // 或 Widget + 复制输入逻辑
-├── LineLayout[]              // 每行 startY, height, text offset in Text
-├── StyledRun[] per line      // 或 char-level StyleIndex[]
-├── SyntaxHighlighterLua      // 正则规则，参考 FCTB
-├── float ScrollY
-├── int LineNumberGutterWidth
-├── void RebuildLayout()
-├── void HighlightChangedLines(int fromLine, int toLine)
-├── override void Draw_(DrawContext dc)
-│   ├── DrawGutterLineNumbers()
-│   ├── DrawTextRuns()        // 按 run QueueText
-│   ├── DrawSelection()
-│   └── DrawCaret()
-└── override 命中测试 / LimitScroll  // 与 Draw_ 共用 LineLayout
+CodeBoxWidget : TextBoxWidget
+├── ICodeSyntaxHighlighter SyntaxHighlighter   // 组合：默认 Plain（无高亮）
+├── CodeStyle + KeywordColor / StringColor / … // 通用样式枚举与配色
+├── float ScrollY、行号栏、滚动条、EnsureCaretVisible
+├── StyledTextDrawItem                       // 按 run 分段 QueueText
+└── 当前行背景、括号匹配高亮
+
+LuaCodeBoxWidget : CodeBoxWidget             // 派生：构造时注入 LuaSyntaxHighlighter
+└── LuaSyntaxHighlighter : ICodeSyntaxHighlighter
+    └── 正则 + 行内扫描（字符串 / 注释 / 数字 / 关键字 / 函数名）
 ```
 
-**最小可行阶段**：
+月之终端脚本对话框 XML 使用 `LuaCodeBoxWidget`；纯文本或无高亮场景可直接用 `CodeBoxWidget`。
 
-1. **Phase A**：正式顶对齐 + `ScrollY`（不再 hack `m_actualSize`）。
-2. **Phase B**：行号栏（无高亮）。
-3. **Phase C**：Lua 关键字/字符串/注释高亮（正则 + run 绘制）。
-4. **Phase D**：当前行背景、括号匹配（可选）。
+**阶段完成情况**：
+
+| 阶段 | 状态 | 落点 |
+| --- | --- | --- |
+| Phase A | 已完成 | 顶对齐 + `ScrollY` |
+| Phase B | 已完成 | 行号栏 |
+| Phase C | 已完成 | `LuaCodeBoxWidget` + `ICodeSyntaxHighlighter` |
+| Phase D | 已完成 | 当前行背景、括号匹配 |
 
 ---
 
