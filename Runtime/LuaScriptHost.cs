@@ -4,15 +4,18 @@ namespace EBoyTerminal.Runtime;
 
 /// <summary>MoonSharp Lua 解释器封装；由 <see cref="ComponentLuaScriptHost"/> 按实体持有实例。</summary>
 public sealed class LuaScriptHost {
-    readonly LuaCoroutineScheduler m_scheduler = new();
+    readonly LuaMachine m_machine = new();
 
     Script? m_script;
 
-    public string? LastError => m_scheduler.LastError;
+    public string? LastError => m_machine.LastError;
 
-    public LuaCoroutineScheduler Scheduler => m_scheduler;
+    public LuaMachine Machine => m_machine;
 
-    public LuaMachineState State => m_scheduler.State;
+    public LuaMachineState State => m_machine.State;
+
+    /// <summary>Lua <c>print</c> 等标准输出回调；由终端 Component 接入显示屏缓冲。</summary>
+    public Action<string>? OnOutput { get; set; }
 
     public Script Script {
         get {
@@ -21,31 +24,30 @@ public sealed class LuaScriptHost {
         }
     }
 
-    public int ActiveCoroutineCount => m_scheduler.ActiveCoroutineCount;
+    public int ActiveCoroutineCount => m_machine.ActiveCoroutineCount;
 
     public void Reset() {
         m_script = CreateScript();
-        m_scheduler.Bind(Script);
+        m_machine.Bind(Script);
+        m_machine.SetOutputSink(OnOutput);
     }
 
     public bool TryLoad(string source, string? chunkName = null) {
         Reset();
-        return m_scheduler.LoadMainSource(source, chunkName);
+        return m_machine.LoadMainSource(source, chunkName);
     }
 
-    public bool Start() {
-        return m_scheduler.Start();
-    }
+    public bool Start() => m_machine.Start();
 
-    public void Stop() {
-        m_scheduler.Stop();
-    }
+    public void Pause() => m_machine.Pause();
+
+    public void Stop() => m_machine.Stop();
 
     public void Tick(float dt) {
         if (m_script == null) {
             return;
         }
-        m_scheduler.Tick(dt);
+        m_machine.Tick(dt);
     }
 
     public bool TryExecute(string source, out DynValue? result, string? chunkName = null) {

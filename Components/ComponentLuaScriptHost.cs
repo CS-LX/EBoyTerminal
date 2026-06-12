@@ -29,6 +29,8 @@ namespace EBoyTerminal {
 
         public bool Start() => m_host.Start();
 
+        public void Pause() => m_host.Pause();
+
         public void Stop() => m_host.Stop();
 
         public void Update(float dt) {

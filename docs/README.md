@@ -36,9 +36,10 @@
 | `EBoyTerminalLoader.cs` | ModLoader 入口 |
 | `EBoyTerminalMod.cs` | 模组运行时初始化 |
 | `Runtime/LuaScriptHost.cs` | MoonSharp Lua 解释器封装（每实体一份） |
-| `Runtime/LuaCoroutineScheduler.cs` | 协程调度：`Update(dt)` 驱动 `sleep` / `sleep_ticks` / `spawn` |
+| `Runtime/LuaMachine.cs` | 协作式 Lua 虚拟机：`Load` / `Start` / `Stop` / `Tick`，含 `sleep` / `spawn` / `print` |
 | `Components/ComponentLuaScriptHost.cs` | 实体级 Lua 运行时 Component |
 | `Components/ComponentMoonTerminal.cs` | 月之终端：脚本持久化 + 组合 `ComponentLuaScriptHost` |
+| `Components/ComponentMoonTerminalScreenProvider.cs` | 月之终端屏幕输出（`IScreenProviderComponent`，左上角绘字） |
 | `Peripherals/` | IE2 设备外设接口与注册表 |
 | `Blocks/MoonTerminalBlock.cs` | 月之终端占位方块（箱子外观 + 铁块属性） |
 | `Widgets/CodeBoxWidget.cs` | 通用代码编辑框（行号、滚动、可选语法高亮） |

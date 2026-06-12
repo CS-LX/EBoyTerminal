@@ -9,7 +9,7 @@ namespace EBoyTerminal {
 
         string m_savedText;
 
-        string m_baseTitle = string.Empty;
+        string m_baseTitle;
 
         CodeBoxWidget m_scriptText;
 
@@ -18,6 +18,8 @@ namespace EBoyTerminal {
         ClickableWidget m_saveButton;
 
         ClickableWidget m_runButton;
+
+        ClickableWidget m_pauseButton;
 
         ClickableWidget m_stopButton;
 
@@ -32,6 +34,7 @@ namespace EBoyTerminal {
             m_titleWidget = Children.Find<LabelWidget>("Title");
             m_saveButton = Children.Find<ClickableWidget>("SaveButton");
             m_runButton = Children.Find<ClickableWidget>("RunButton");
+            m_pauseButton = Children.Find<ClickableWidget>("PauseButton");
             m_stopButton = Children.Find<ClickableWidget>("StopButton");
             m_closeButton = Children.Find<ClickableWidget>("CloseButton");
             m_baseTitle = m_titleWidget.Text;
@@ -67,6 +70,10 @@ namespace EBoyTerminal {
             else if (m_runButton.IsClicked) {
                 Save();
                 m_component.StartScript();
+                UpdateTitle();
+            }
+            else if (m_pauseButton.IsClicked) {
+                m_component.PauseScript();
                 UpdateTitle();
             }
             else if (m_stopButton.IsClicked) {

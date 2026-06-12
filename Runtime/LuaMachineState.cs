@@ -5,5 +5,6 @@ public enum LuaMachineState {
     Stopped,
     Ready,
     Running,
+    Paused,
     Error
 }

@@ -9,6 +9,9 @@
 			<MemberComponentTemplate Name="MoonTerminal" Guid="eb0f0002-dfe9-4331-900e-4c5f3ce25348" InheritanceParent="b05700ed-7e4e-4679-98f5-b597f421496b">
 				<Parameter Name="Class" Guid="eb0f0002-1d3c-467e-81bc-1796f686be51" Value="EBoyTerminal.ComponentMoonTerminal" Type="string" />
 			</MemberComponentTemplate>
+			<MemberComponentTemplate Name="MoonTerminalScreenProvider" Guid="eb0f0005-7c4a-4b1e-9f2a-6d8e5f0a1b2c" InheritanceParent="b05700ed-7e4e-4679-98f5-b597f421496b">
+				<Parameter Name="Class" Guid="eb0f0005-1a2b-4c3d-8e5f-901234567890" Value="EBoyTerminal.ComponentMoonTerminalScreenProvider" Type="string" />
+			</MemberComponentTemplate>
 		</EntityTemplate>
 	</Folder>
 	<!-- 与宿主 / IE2 共用 Project Guid，MemberSubsystemTemplate 才会并入世界 Project -->

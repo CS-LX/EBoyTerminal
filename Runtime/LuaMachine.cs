@@ -3,14 +3,16 @@ using MoonSharp.Interpreter;
 namespace EBoyTerminal.Runtime;
 
 /// <summary>
-/// 按游戏 <c>Update(dt)</c> 驱动 MoonSharp 协程：C# <c>sleep</c> / <c>sleep_ticks</c> 与 Lua <c>coroutine.yield</c>。
+/// 主线程协作式 Lua 虚拟机：编译/运行/停止、协程调度与内置 API。
 /// </summary>
-public sealed class LuaCoroutineScheduler {
+public sealed class LuaMachine {
     readonly List<CoroutineEntry> m_entries = new();
 
     readonly List<DynValue> m_spawnQueue = new();
 
     Script? m_script;
+
+    Action<string>? m_outputSink;
 
     public string? LastError { get; private set; }
 
@@ -23,6 +25,8 @@ public sealed class LuaCoroutineScheduler {
 
     /// <summary>单帧最多恢复多少个协程，避免大量 <c>spawn</c> 同帧堆积。</summary>
     public int MaxResumesPerTick { get; set; } = 64;
+
+    public void SetOutputSink(Action<string>? sink) => m_outputSink = sink;
 
     public void Bind(Script script) {
         m_script = script;
@@ -67,11 +71,17 @@ public sealed class LuaCoroutineScheduler {
         if (State == LuaMachineState.Running) {
             return true;
         }
-        if (State != LuaMachineState.Ready) {
+        if (State != LuaMachineState.Ready && State != LuaMachineState.Paused) {
             return false;
         }
         State = LuaMachineState.Running;
         return true;
+    }
+
+    public void Pause() {
+        if (State == LuaMachineState.Running) {
+            State = LuaMachineState.Paused;
+        }
     }
 
     public void Stop() {
@@ -197,6 +207,21 @@ public sealed class LuaCoroutineScheduler {
         script.Globals["sleep"] = DynValue.NewCallback(SleepSeconds);
         script.Globals["sleep_ticks"] = DynValue.NewCallback(SleepTicks);
         script.Globals["spawn"] = DynValue.NewCallback(Spawn);
+        script.Globals["print"] = DynValue.NewCallback(Print);
+    }
+
+    DynValue Print(ScriptExecutionContext context, CallbackArguments args) {
+        if (args.Count == 0) {
+            m_outputSink?.Invoke(string.Empty);
+            return DynValue.Nil;
+        }
+        if (args.Count == 1) {
+            m_outputSink?.Invoke(args[0].ToPrintString());
+            return DynValue.Nil;
+        }
+        string text = string.Join("\t", args.GetArray().Select(static value => value.ToPrintString()));
+        m_outputSink?.Invoke(text);
+        return DynValue.Nil;
     }
 
     DynValue SleepSeconds(ScriptExecutionContext context, CallbackArguments args) {

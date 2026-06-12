@@ -9,5 +9,10 @@
     "MoonTerminalScriptDialog": {
       "1": "Moon Terminal"
     }
+  },
+  "Components": {
+    "ComponentMoonTerminalScreenProvider": {
+      "ProviderDescription": "Moon Terminal Lua output"
+    }
   }
 }

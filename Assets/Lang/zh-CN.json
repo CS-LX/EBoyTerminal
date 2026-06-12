@@ -9,5 +9,10 @@
     "MoonTerminalScriptDialog": {
       "1": "月之终端"
     }
+  },
+  "Components": {
+    "ComponentMoonTerminalScreenProvider": {
+      "ProviderDescription": "月之终端 Lua 输出"
+    }
   }
 }
