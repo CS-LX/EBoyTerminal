@@ -11,7 +11,7 @@
 
 1. 检出 [CS-LX/Industrial-Era-2](https://github.com/CS-LX/Industrial-Era-2)（`NEXT` 分支，`submodules: recursive`）
 2. 用当前 commit 覆盖 `Addons/EBoyTerminal`
-3. 在 `ie2/Addons/EBoyTerminal` 下 `dotnet build` 与打包 `.scmod`
+3. `dotnet restore`（含 SCIENEW 与其 `MiniBinaryXmlTool` 预构建工具）后 `dotnet build` 与打包 `.scmod`
 
 本地 monorepo 开发路径须保持 `industrial-era-2/Addons/EBoyTerminal` 与 `industrial-era-2/SCIENEW` 同级。
 

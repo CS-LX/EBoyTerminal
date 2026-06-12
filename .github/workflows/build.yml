@@ -44,9 +44,12 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      # SCIENEW PreBuild 经 MSBuild 编译 tools/MiniBinaryXmlTool，不在 ProjectReference 图内，须单独 restore
       - name: Restore
-        working-directory: ie2/Addons/EBoyTerminal
-        run: dotnet restore EBoyTerminal.csproj
+        run: |
+          dotnet restore ie2/SCIENEW/tools/MiniBinaryXmlTool/MiniBinaryXmlTool.csproj
+          dotnet restore ie2/SCIENEW/SCIENEW.csproj
+          dotnet restore ie2/Addons/EBoyTerminal/EBoyTerminal.csproj
 
       - name: Build
         working-directory: ie2/Addons/EBoyTerminal
