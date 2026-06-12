@@ -1,4 +1,3 @@
-using System.Text;
 using Game;
 using GameEntitySystem;
 using TemplatesDatabase;
@@ -7,7 +6,8 @@ using EBoyTerminal.Runtime;
 namespace EBoyTerminal {
     public class ComponentMoonTerminal : Component {
         public const string ScriptTextKey = "ScriptText";
-        const int MaxOutputLines = 32;
+        public const string MaxOutputLinesKey = "MaxOutputLines";
+        public const int DefaultMaxOutputLines = 512;
 
         readonly List<string> m_outputLines = new();
 
@@ -29,21 +29,29 @@ namespace EBoyTerminal {
 
         public IReadOnlyList<string> OutputLines => m_outputLines;
 
+        /// <summary>输出缓冲最多保留的行数；屏上实际可见行数由 Screen 尺寸动态决定。</summary>
+        public int MaxOutputLines { get; private set; } = DefaultMaxOutputLines;
+
         public override void Load(ValuesDictionary valuesDictionary, IdToEntityMap idToEntityMap) {
             m_luaScriptHost = Entity.FindComponent<ComponentLuaScriptHost>(throwOnError: true);
             m_scriptText = valuesDictionary.GetValue(ScriptTextKey, string.Empty);
+            MaxOutputLines = Math.Max(1, valuesDictionary.GetValue(MaxOutputLinesKey, DefaultMaxOutputLines));
             PushScriptToHost();
         }
 
         public override void Save(ValuesDictionary valuesDictionary, EntityToIdMap entityToIdMap) {
             valuesDictionary.SetValue(ScriptTextKey, m_scriptText);
+            valuesDictionary.SetValue(MaxOutputLinesKey, MaxOutputLines);
         }
 
-        public string GetScreenText() {
+        /// <summary>取缓冲末尾最多 <paramref name="maxDisplayLines"/> 行，类似终端滚动区。</summary>
+        public string GetScreenText(int maxDisplayLines) {
             if (m_outputLines.Count == 0) {
                 return string.Empty;
             }
-            return string.Join("\n", m_outputLines);
+            int lineCount = Math.Max(1, Math.Min(MaxOutputLines, maxDisplayLines));
+            int start = Math.Max(0, m_outputLines.Count - lineCount);
+            return string.Join("\n", m_outputLines.Skip(start));
         }
 
         public void ClearOutput() => m_outputLines.Clear();

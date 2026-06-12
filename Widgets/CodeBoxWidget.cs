@@ -184,6 +184,8 @@ namespace EBoyTerminal {
                 CloseInputMethod();
             }
 
+            HandleStandardEditShortcuts();
+
             if (HasFocus
                 && Caret != Text.Length
                 && Keyboard.IsKeyDownRepeat(Key.Delete)) {
@@ -223,7 +225,9 @@ namespace EBoyTerminal {
 
                 char? lastChar = Keyboard.LastChar;
                 if (lastChar != null
-                    && lastChar != '\n') {
+                    && lastChar != '\n'
+                    && !char.IsControl(lastChar.Value)
+                    && !Keyboard.IsKeyDown(Key.Control)) {
                     EnterCharacter(lastChar.Value);
                 }
             }
@@ -238,29 +242,35 @@ namespace EBoyTerminal {
                 int thisIndex = textBoxes.IndexOf(this);
                 FocusedTextBox = textBoxes[(thisIndex + 1) % textBoxes.Count];
             }
-            if (HasFocus
-                && SelectionLength != 0
-                && !InputMethodEnabled) {
-                if (Keyboard.IsKeyDown(Key.Control)
-                    && Keyboard.IsKeyDownOnce(Key.C)) {
-                    ClipboardManager.ClipboardString = SelectionString;
-                }
-                if (Keyboard.IsKeyDown(Key.Control)
-                    && Keyboard.IsKeyDownOnce(Key.X)) {
-                    ClipboardManager.ClipboardString = SelectionString;
-                    DeleteSelection();
-                }
-                if (Keyboard.IsKeyDown(Key.Control)
-                    && Keyboard.IsKeyDownOnce(Key.V)) {
-                    string text = ClipboardManager.ClipboardString;
-                    if (text != null) {
-                        EnterText(ClipboardManager.ClipboardString);
-                    }
-                }
-            }
 #endif
             if (HasFocus) {
                 EnsureCaretVisible();
+            }
+        }
+
+        void HandleStandardEditShortcuts() {
+            if (!HasFocus || !Keyboard.IsKeyDown(Key.Control)) {
+                return;
+            }
+            if (Keyboard.IsKeyDownOnce(Key.A)) {
+                Caret = 0;
+                SelectionLength = Text.Length;
+                return;
+            }
+            if (Keyboard.IsKeyDownOnce(Key.C) && SelectionLength != 0) {
+                ClipboardManager.ClipboardString = SelectionString;
+                return;
+            }
+            if (Keyboard.IsKeyDownOnce(Key.X) && SelectionLength != 0) {
+                ClipboardManager.ClipboardString = SelectionString;
+                DeleteSelection();
+                return;
+            }
+            if (Keyboard.IsKeyDownOnce(Key.V)) {
+                string? clip = ClipboardManager.ClipboardString;
+                if (clip != null) {
+                    EnterText(clip);
+                }
             }
         }
 
