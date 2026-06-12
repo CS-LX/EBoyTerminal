@@ -32,7 +32,7 @@ namespace EBoyTerminal {
             }
             Vector3 right = TextScale * -screen.Edge1;
             Vector3 down = TextScale * -screen.Edge2;
-            m_fontBatch3D.QueueText(text, screen.WorldPos4, right, down, Color.Green, default);
+            m_fontBatch3D.QueueText(text, screen.WorldPos3, right, down, Color.Green, default);
             m_primitivesRenderer3D.Flush(camera.ViewProjectionMatrix);
         }
 
