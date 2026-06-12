@@ -25,7 +25,7 @@ namespace EBoyTerminal {
         }
 
         public void Update(float dt) {
-            // 后续：定时器、事件队列、产线轮询等
+            m_host.Tick(dt);
         }
 
         string GetChunkName() {

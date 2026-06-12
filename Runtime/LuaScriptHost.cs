@@ -4,9 +4,13 @@ namespace EBoyTerminal.Runtime;
 
 /// <summary>MoonSharp Lua 解释器封装；由 <see cref="ComponentLuaScriptHost"/> 按实体持有实例。</summary>
 public sealed class LuaScriptHost {
+    readonly LuaCoroutineScheduler m_scheduler = new();
+
     Script? m_script;
 
-    public string? LastError { get; private set; }
+    public string? LastError => m_scheduler.LastError;
+
+    public LuaCoroutineScheduler Scheduler => m_scheduler;
 
     public Script Script {
         get {
@@ -15,38 +19,33 @@ public sealed class LuaScriptHost {
         }
     }
 
+    public int ActiveCoroutineCount => m_scheduler.ActiveCoroutineCount;
+
     public void Reset() {
         m_script = CreateScript();
-        LastError = null;
+        m_scheduler.Bind(Script);
     }
 
     public bool TryLoad(string source, string? chunkName = null) {
-        if (string.IsNullOrWhiteSpace(source)) {
-            Reset();
-            return true;
+        Reset();
+        return m_scheduler.StartMainSource(source, chunkName);
+    }
+
+    public void Tick(float dt) {
+        if (m_script == null) {
+            return;
         }
-        try {
-            Reset();
-            Script.DoString(source, null, chunkName ?? "chunk");
-            LastError = null;
-            return true;
-        }
-        catch (InterpreterException ex) {
-            LastError = ex.DecoratedMessage ?? ex.Message;
-            return false;
-        }
+        m_scheduler.Tick(dt);
     }
 
     public bool TryExecute(string source, out DynValue? result, string? chunkName = null) {
         result = null;
         try {
             m_script ??= CreateScript();
-            result = m_script.DoString(source, null, chunkName ?? "chunk");
-            LastError = null;
+            result = Script.DoString(source, null, chunkName ?? "chunk");
             return true;
         }
-        catch (InterpreterException ex) {
-            LastError = ex.DecoratedMessage ?? ex.Message;
+        catch (InterpreterException) {
             return false;
         }
     }

@@ -1,0 +1,194 @@
+using MoonSharp.Interpreter;
+
+namespace EBoyTerminal.Runtime;
+
+/// <summary>
+/// 按游戏 <c>Update(dt)</c> 驱动 MoonSharp 协程：C# <c>sleep</c> / <c>sleep_ticks</c> 与 Lua <c>coroutine.yield</c>。
+/// </summary>
+public sealed class LuaCoroutineScheduler {
+    readonly List<CoroutineEntry> m_entries = new();
+
+    readonly List<DynValue> m_spawnQueue = new();
+
+    Script? m_script;
+
+    public string? LastError { get; private set; }
+
+    public int ActiveCoroutineCount => m_entries.Count;
+
+    public void Bind(Script script) {
+        m_script = script;
+        m_entries.Clear();
+        m_spawnQueue.Clear();
+        LastError = null;
+        RegisterBuiltins(script);
+    }
+
+    public bool StartMainSource(string source, string? chunkName) {
+        if (m_script == null) {
+            return false;
+        }
+        m_entries.Clear();
+        m_spawnQueue.Clear();
+        LastError = null;
+        if (string.IsNullOrWhiteSpace(source)) {
+            return true;
+        }
+        try {
+            string wrapped = $"local function __eboy_main()\n{source}\nend\nreturn __eboy_main";
+            DynValue mainFunc = m_script.LoadString(wrapped, null, chunkName ?? "terminal");
+            DynValue coroutine = m_script.CreateCoroutine(mainFunc);
+            coroutine.Coroutine.AutoYieldCounter = 8000;
+            m_entries.Add(new CoroutineEntry(coroutine));
+            CoroutineEntry mainEntry = m_entries[0];
+            ResumeEntry(ref mainEntry);
+            m_entries[0] = mainEntry;
+            return LastError == null;
+        }
+        catch (InterpreterException ex) {
+            LastError = ex.DecoratedMessage ?? ex.Message;
+            m_entries.Clear();
+            return false;
+        }
+    }
+
+    /// <summary>每帧调用一次；<paramref name="dt"/> 为秒，用于 <c>sleep(seconds)</c>。</summary>
+    public void Tick(float dt) {
+        if (m_script == null || (m_entries.Count == 0 && m_spawnQueue.Count == 0)) {
+            return;
+        }
+        FlushSpawnQueue();
+        for (int i = m_entries.Count - 1; i >= 0; i--) {
+            CoroutineEntry entry = m_entries[i];
+            if (entry.SleepSecondsRemaining > 0f) {
+                entry.SleepSecondsRemaining -= dt;
+                if (entry.SleepSecondsRemaining > 0f) {
+                    m_entries[i] = entry;
+                    continue;
+                }
+                entry.SleepSecondsRemaining = 0f;
+            }
+            if (entry.TicksRemaining > 0) {
+                entry.TicksRemaining--;
+                if (entry.TicksRemaining > 0) {
+                    m_entries[i] = entry;
+                    continue;
+                }
+            }
+            ResumeEntry(ref entry);
+            if (i < m_entries.Count && ReferenceEquals(m_entries[i].Handle, entry.Handle)) {
+                m_entries[i] = entry;
+            }
+        }
+        FlushSpawnQueue();
+    }
+
+    void FlushSpawnQueue() {
+        if (m_spawnQueue.Count == 0) {
+            return;
+        }
+        foreach (DynValue coroutine in m_spawnQueue) {
+            m_entries.Add(new CoroutineEntry(coroutine));
+            int index = m_entries.Count - 1;
+            CoroutineEntry entry = m_entries[index];
+            ResumeEntry(ref entry);
+            m_entries[index] = entry;
+        }
+        m_spawnQueue.Clear();
+    }
+
+    void ResumeEntry(ref CoroutineEntry entry) {
+        if (m_script == null) {
+            return;
+        }
+        try {
+            DynValue result = entry.Handle.Coroutine.Resume();
+            while (result.Type == DataType.YieldRequest && result.YieldRequest is { Forced: true }) {
+                result = entry.Handle.Coroutine.Resume();
+            }
+            ProcessResumeResult(ref entry, result);
+        }
+        catch (InterpreterException ex) {
+            LastError = ex.DecoratedMessage ?? ex.Message;
+            RemoveEntry(entry);
+        }
+    }
+
+    void ProcessResumeResult(ref CoroutineEntry entry, DynValue result) {
+        if (entry.Handle.Coroutine.State == CoroutineState.Dead) {
+            RemoveEntry(entry);
+            return;
+        }
+        if (result.Type == DataType.YieldRequest) {
+            ApplyYieldRequest(ref entry, result);
+        }
+        // Lua coroutine.yield(...)：下一帧再继续，避免单帧占满 CPU。
+    }
+
+    void ApplyYieldRequest(ref CoroutineEntry entry, DynValue result) {
+        DynValue[]? args = result.YieldRequest?.ReturnValues;
+        if (args == null || args.Length == 0) {
+            return;
+        }
+        if (args[0].Type == DataType.String && args[0].String == "ticks") {
+            entry.TicksRemaining = Math.Max(0, (int)args[1].Number);
+            entry.SleepSecondsRemaining = 0f;
+            return;
+        }
+        entry.SleepSecondsRemaining = Math.Max(0f, (float)args[0].Number);
+        entry.TicksRemaining = 0;
+    }
+
+    void RemoveEntry(CoroutineEntry entry) {
+        for (int i = m_entries.Count - 1; i >= 0; i--) {
+            if (ReferenceEquals(m_entries[i].Handle, entry.Handle)) {
+                m_entries.RemoveAt(i);
+                return;
+            }
+        }
+    }
+
+    void RegisterBuiltins(Script script) {
+        script.Globals["sleep"] = DynValue.NewCallback(SleepSeconds);
+        script.Globals["sleep_ticks"] = DynValue.NewCallback(SleepTicks);
+        script.Globals["spawn"] = DynValue.NewCallback(Spawn);
+    }
+
+    DynValue SleepSeconds(ScriptExecutionContext context, CallbackArguments args) {
+        double seconds = args.AsType(0, "sleep", DataType.Number, false).Number;
+        if (seconds < 0d) {
+            seconds = 0d;
+        }
+        return DynValue.NewYieldReq([DynValue.NewNumber(seconds)]);
+    }
+
+    DynValue SleepTicks(ScriptExecutionContext context, CallbackArguments args) {
+        double ticks = args.AsType(0, "sleep_ticks", DataType.Number, false).Number;
+        int tickCount = Math.Max(0, (int)Math.Round(ticks));
+        return DynValue.NewYieldReq([DynValue.NewString("ticks"), DynValue.NewNumber(tickCount)]);
+    }
+
+    DynValue Spawn(ScriptExecutionContext context, CallbackArguments args) {
+        if (m_script == null) {
+            return DynValue.Nil;
+        }
+        DynValue fn = args.AsType(0, "spawn", DataType.Function, false);
+        DynValue coroutine = m_script.CreateCoroutine(fn);
+        m_spawnQueue.Add(coroutine);
+        return DynValue.Nil;
+    }
+
+    struct CoroutineEntry {
+        public CoroutineEntry(DynValue handle) {
+            Handle = handle;
+            SleepSecondsRemaining = 0f;
+            TicksRemaining = 0;
+        }
+
+        public DynValue Handle;
+
+        public float SleepSecondsRemaining;
+
+        public int TicksRemaining;
+    }
+}
