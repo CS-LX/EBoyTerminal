@@ -12,6 +12,8 @@ public sealed class LuaMachine {
 
     readonly List<DynValue> m_spawnQueue = new();
 
+    readonly Dictionary<string, Func<Script, DynValue>> m_globalFactories = new();
+
     Script? m_script;
 
     Action<string>? m_outputSink;
@@ -30,6 +32,31 @@ public sealed class LuaMachine {
 
     public void SetOutputSink(Action<string>? sink) => m_outputSink = sink;
 
+    public void SetGlobal(string name, DynValue value) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        m_globalFactories[name] = _ => value;
+        ApplyGlobal(name);
+    }
+
+    public void SetGlobal(string name, object? value) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        m_globalFactories[name] = script => DynValue.FromObject(script, value);
+        ApplyGlobal(name);
+    }
+
+    public void SetTable(string name, IReadOnlyDictionary<string, DynValue> members) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        Dictionary<string, DynValue> memberCopy = new(members);
+        m_globalFactories[name] = script => {
+            Table table = new(script);
+            foreach ((string memberName, DynValue memberValue) in memberCopy) {
+                table.Set(memberName, memberValue);
+            }
+            return DynValue.NewTable(table);
+        };
+        ApplyGlobal(name);
+    }
+
     public void Bind(Script script) {
         m_script = script;
         m_entries.Clear();
@@ -37,6 +64,7 @@ public sealed class LuaMachine {
         LastError = null;
         State = LuaMachineState.Stopped;
         RegisterBuiltins(script);
+        ApplyGlobals(script);
     }
 
     /// <summary>只编译玩家脚本并准备主协程；不会立即执行任何玩家代码。</summary>
@@ -205,6 +233,19 @@ public sealed class LuaMachine {
                 m_entries.RemoveAt(i);
                 return;
             }
+        }
+    }
+
+    void ApplyGlobal(string name) {
+        if (m_script == null || !m_globalFactories.TryGetValue(name, out Func<Script, DynValue>? factory)) {
+            return;
+        }
+        m_script.Globals[name] = factory(m_script);
+    }
+
+    void ApplyGlobals(Script script) {
+        foreach ((string name, Func<Script, DynValue> factory) in m_globalFactories) {
+            script.Globals[name] = factory(script);
         }
     }
 

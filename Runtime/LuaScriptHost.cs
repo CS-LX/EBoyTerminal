@@ -62,8 +62,16 @@ public sealed class LuaScriptHost {
         }
     }
 
+    public void RegisterGlobal(string name, DynValue value) {
+        m_machine.SetGlobal(name, value);
+    }
+
     public void RegisterGlobal(string name, object value) {
-        Script.Globals[name] = UserData.Create(value);
+        m_machine.SetGlobal(name, value);
+    }
+
+    public void RegisterApiTable(string name, IReadOnlyDictionary<string, DynValue> members) {
+        m_machine.SetTable(name, members);
     }
 
     static Script CreateScript() => new(CoreModules.Preset_SoftSandbox);

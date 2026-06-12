@@ -1,5 +1,6 @@
 using Game;
 using GameEntitySystem;
+using MoonSharp.Interpreter;
 using TemplatesDatabase;
 using EBoyTerminal.Runtime;
 
@@ -67,12 +68,47 @@ namespace EBoyTerminal {
             }
         }
 
-        void PushScriptToHost() {
+        public void InitializeLuaHost() {
             if (m_luaScriptHost == null) {
                 return;
             }
             m_luaScriptHost.Host.OnOutput = AppendOutput;
+            m_luaScriptHost.Host.RegisterApiTable("terminal", new Dictionary<string, DynValue> {
+                ["write"] = DynValue.NewCallback(TerminalWrite),
+                ["print"] = DynValue.NewCallback(TerminalPrint),
+                ["clear"] = DynValue.NewCallback(TerminalClear),
+                ["lines"] = DynValue.NewCallback(TerminalLines)
+            });
+        }
+
+        void PushScriptToHost() {
+            if (m_luaScriptHost == null) {
+                return;
+            }
+            InitializeLuaHost();
             m_luaScriptHost.ReloadFromSource(m_scriptText);
+        }
+
+        DynValue TerminalWrite(ScriptExecutionContext context, CallbackArguments args) {
+            AppendOutput(args.Count > 0 ? args[0].ToPrintString() : string.Empty);
+            return DynValue.Nil;
+        }
+
+        DynValue TerminalPrint(ScriptExecutionContext context, CallbackArguments args) {
+            string text = args.Count == 0
+                ? string.Empty
+                : string.Join("\t", args.GetArray().Select(static value => value.ToPrintString()));
+            AppendOutput(text);
+            return DynValue.Nil;
+        }
+
+        DynValue TerminalClear(ScriptExecutionContext context, CallbackArguments args) {
+            ClearOutput();
+            return DynValue.Nil;
+        }
+
+        DynValue TerminalLines(ScriptExecutionContext context, CallbackArguments args) {
+            return DynValue.NewNumber(m_outputLines.Count);
         }
 
         public bool StartScript() {
