@@ -15,6 +15,20 @@
 
 本地 monorepo 开发路径须保持 `industrial-era-2/Addons/EBoyTerminal` 与 `industrial-era-2/SCIENEW` 同级。
 
+### Private 主仓：配置 `IE2_REPO_TOKEN`
+
+[Industrial-Era-2](https://github.com/CS-LX/Industrial-Era-2) 为 **private** 时，默认 `GITHUB_TOKEN` 无法跨仓检出。须在本仓库 **Settings → Secrets and variables → Actions** 添加：
+
+| Secret | 说明 |
+| --- | --- |
+| `IE2_REPO_TOKEN` | 对 `CS-LX/Industrial-Era-2` 有 **读** 权限的 PAT（classic 勾 `repo`，或 fine-grained 只读该仓库） |
+
+同一 GitHub 组织下也可在 **Organization secrets** 配置后授权给 `EBoyTerminal` 仓库。
+
+**限制**：来自 fork 的 PR 默认拿不到该 secret，CI 会跳过/失败；主仓分支 push 与 `workflow_dispatch` 正常。
+
+若不想维护 PAT，可关闭 GitHub Actions，仅在 Gitee monorepo（`industrial-era-2`）内构建。
+
 ## 代码结构（脚手架）
 
 | 路径 | 说明 |

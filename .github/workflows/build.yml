@@ -1,5 +1,5 @@
 # EBoyTerminal 编译期依赖 IE2（SCIENEW）工程：与 monorepo 中 Addons/EBoyTerminal 相对路径一致。
-# 单独 checkout 本仓库时无 ..\..\SCIENEW，须先检出 Industrial-Era-2 再覆盖本目录为当前 revision。
+# Industrial-Era-2 为 private 时，须在仓库 Secrets 配置 IE2_REPO_TOKEN（见 docs/README.md）。
 name: Build
 
 on:
@@ -13,6 +13,19 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      - name: Require IE2 checkout token
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:IE2_REPO_TOKEN)) {
+            Write-Error @"
+          IE2_REPO_TOKEN secret is not set.
+          Industrial-Era-2 is private; add a PAT with read access to that repo as repository secret IE2_REPO_TOKEN.
+          See docs/README.md (CI section).
+          "@
+          }
+        env:
+          IE2_REPO_TOKEN: ${{ secrets.IE2_REPO_TOKEN }}
+
       - name: Checkout Industrial Era 2 (SCIENEW + 传递依赖)
         uses: actions/checkout@v4
         with:
@@ -20,6 +33,7 @@ jobs:
           ref: NEXT
           path: ie2
           submodules: recursive
+          token: ${{ secrets.IE2_REPO_TOKEN }}
 
       - name: Checkout EBoyTerminal (this revision)
         uses: actions/checkout@v4
