@@ -21,7 +21,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="MoonSharp" Version="2.0.0" GeneratePathProperty="true" />
     <PackageReference Include="SurvivalcraftAPI.Survivalcraft" Version="1.9.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(PkgMoonSharp)\lib\netstandard1.6\MoonSharp.Interpreter.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <!-- 在 industrial-era-2  monorepo 内作为子模块时，可选引用 SCIENEW 以便调用 IE2 API -->
