@@ -15,6 +15,8 @@ namespace EBoyTerminal {
 
         readonly float[] m_inputVoltages = new float[6];
         readonly float[] m_outputVoltages = new float[6];
+        readonly int[] m_pulseTicksRemaining = new int[6];
+        readonly float[] m_pulseReleaseVoltage = new float[6];
 
         ComponentBlockEntity m_blockEntity = null!;
         ComponentMoonTerminal m_terminal = null!;
@@ -71,7 +73,32 @@ namespace EBoyTerminal {
 
         public void OnPowerLost() {
             ClearInputReadings();
-            if (!ClearOutputs()) {
+            ClearPulses();
+            ClearOutputs();
+            m_electricElement?.QueueSimulation();
+        }
+
+        public void AdvancePulses() {
+            if (!IsIoEnabled) {
+                return;
+            }
+            bool changed = false;
+            for (int face = 0; face < 6; face++) {
+                if (m_pulseTicksRemaining[face] <= 0) {
+                    continue;
+                }
+                m_pulseTicksRemaining[face]--;
+                if (m_pulseTicksRemaining[face] != 0) {
+                    continue;
+                }
+                float releaseVoltage = m_pulseReleaseVoltage[face];
+                if (Math.Abs(m_outputVoltages[face] - releaseVoltage) <= VoltageEpsilon) {
+                    continue;
+                }
+                m_outputVoltages[face] = releaseVoltage;
+                changed = true;
+            }
+            if (changed) {
                 m_electricElement?.QueueSimulation();
             }
         }
@@ -99,7 +126,33 @@ namespace EBoyTerminal {
                 return false;
             }
             voltage = ClampVoltage(voltage);
+            CancelPulse(face);
             if (Math.Abs(m_outputVoltages[face] - voltage) <= VoltageEpsilon) {
+                return true;
+            }
+            m_outputVoltages[face] = voltage;
+            m_electricElement?.QueueSimulation();
+            return true;
+        }
+
+        public bool TryPulsePort(string portName, float voltage, int ticks, out string? error) {
+            error = null;
+            if (ticks < 1) {
+                error = "pulse ticks must be >= 1";
+                return false;
+            }
+            if (!TryResolvePort(portName, out int face, out error)) {
+                return false;
+            }
+            if (!IsIoEnabled) {
+                error = "terminal is unpowered";
+                return false;
+            }
+            voltage = ClampVoltage(voltage);
+            m_pulseReleaseVoltage[face] = 0f;
+            m_pulseTicksRemaining[face] = ticks;
+            if (Math.Abs(m_outputVoltages[face] - voltage) <= VoltageEpsilon) {
+                m_electricElement?.QueueSimulation();
                 return true;
             }
             m_outputVoltages[face] = voltage;
@@ -146,6 +199,16 @@ namespace EBoyTerminal {
                     }
                     return DynValue.Nil;
                 }),
+                ["pulse"] = context.Callback((_, args) => {
+                    if (args.Count < 2) {
+                        throw new ScriptRuntimeException("electric.pulse(port, ticks[, value]) requires port and ticks");
+                    }
+                    float voltage = args.Count >= 3 ? (float)args[2].Number : 1f;
+                    if (!TryPulsePort(args[0].CastToString(), voltage, (int)args[1].Number, out string? error)) {
+                        throw new ScriptRuntimeException(error ?? "invalid port");
+                    }
+                    return DynValue.Nil;
+                }),
                 ["isInput"] = context.Callback((_, args) => DynValue.NewBoolean(IsPortName(args, 0))),
                 ["isOutput"] = context.Callback((_, args) => DynValue.NewBoolean(IsPortName(args, 0))),
                 ["enabled"] = context.Callback((_, _) => DynValue.NewBoolean(IsIoEnabled)),
@@ -183,7 +246,7 @@ namespace EBoyTerminal {
         }
 
         bool ClearOutputs() {
-            bool changed = false;
+            bool changed = ClearPulses();
             for (int face = 0; face < 6; face++) {
                 if (m_outputVoltages[face] != 0f) {
                     m_outputVoltages[face] = 0f;
@@ -191,6 +254,24 @@ namespace EBoyTerminal {
                 }
             }
             return changed;
+        }
+
+        bool ClearPulses() {
+            bool changed = false;
+            for (int face = 0; face < 6; face++) {
+                if (m_pulseTicksRemaining[face] == 0) {
+                    continue;
+                }
+                m_pulseTicksRemaining[face] = 0;
+                m_pulseReleaseVoltage[face] = 0f;
+                changed = true;
+            }
+            return changed;
+        }
+
+        void CancelPulse(int face) {
+            m_pulseTicksRemaining[face] = 0;
+            m_pulseReleaseVoltage[face] = 0f;
         }
 
         void LoadOutputVoltages(string serialized) {

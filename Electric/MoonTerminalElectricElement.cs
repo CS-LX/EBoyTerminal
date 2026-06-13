@@ -51,6 +51,7 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
             }
             changed |= m_component.SetInputReading(face, voltage);
         }
+        m_component.AdvancePulses();
         return changed;
     }
 

@@ -40,5 +40,8 @@ else
   bad("electric port capabilities")
 end
 
+local pulsed, pulseErr = pcall(function() terminal.electric.pulse("back", 2) end)
+if pulsed then ok("electric.pulse(back,2)") else bad("electric.pulse(back,2)", pulseErr) end
+
 terminal.print(string.format("RESULT: %d pass, %d fail, %d skip", pass, fail, skip))
 if fail == 0 then terminal.print("SMOKE OK") else terminal.print("SMOKE FAILED") end
