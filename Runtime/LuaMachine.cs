@@ -20,11 +20,19 @@ public sealed class LuaMachine {
 
     Action<string>? m_outputSink;
 
+    Action<string>? m_onError;
+
     public string? LastError { get; private set; }
 
     public LuaMachineState State { get; private set; } = LuaMachineState.Stopped;
 
     public int ActiveCoroutineCount => m_entries.Count;
+
+    /// <summary>脚本编译/运行失败时回调；由上层写入终端输出，不向游戏主循环抛异常。</summary>
+    public Action<string>? OnError {
+        get => m_onError;
+        set => m_onError = value;
+    }
 
     /// <summary>MoonSharp 自动让出的指令数；值越小越不容易卡帧，但总吞吐也越低。</summary>
     public int AutoYieldInstructionCount { get; set; } = 8000;
@@ -90,11 +98,8 @@ public sealed class LuaMachine {
             State = LuaMachineState.Ready;
             return LastError == null;
         }
-        catch (InterpreterException ex) {
-            LastError = ex.DecoratedMessage ?? ex.Message;
-            m_mainFunc = null;
-            m_entries.Clear();
-            State = LuaMachineState.Error;
+        catch (Exception ex) {
+            ReportCompileError(FormatException(ex));
             return false;
         }
     }
@@ -197,9 +202,8 @@ public sealed class LuaMachine {
             DynValue result = entry.Handle.Coroutine.Resume();
             ProcessResumeResult(ref entry, result);
         }
-        catch (InterpreterException ex) {
-            LastError = ex.DecoratedMessage ?? ex.Message;
-            Fail();
+        catch (Exception ex) {
+            ReportRuntimeError(FormatException(ex));
         }
     }
 
@@ -245,6 +249,25 @@ public sealed class LuaMachine {
         State = LuaMachineState.Error;
     }
 
+    void ReportCompileError(string message) {
+        LastError = message;
+        m_onError?.Invoke(message);
+        m_mainFunc = null;
+        m_entries.Clear();
+        State = LuaMachineState.Error;
+    }
+
+    public void ReportRuntimeError(string message) {
+        LastError = message;
+        m_onError?.Invoke(message);
+        Fail();
+    }
+
+    static string FormatException(Exception ex) => ex switch {
+        InterpreterException interpreterException => interpreterException.DecoratedMessage ?? interpreterException.Message,
+        _ => ex.Message
+    };
+
     void RemoveEntry(CoroutineEntry entry) {
         for (int i = m_entries.Count - 1; i >= 0; i--) {
             if (ReferenceEquals(m_entries[i].Handle, entry.Handle)) {
@@ -273,27 +296,39 @@ public sealed class LuaMachine {
     }
 
     DynValue Print(ScriptExecutionContext context, CallbackArguments args) {
-        if (args.Count == 0) {
-            m_outputSink?.Invoke(string.Empty);
+        try {
+            if (args.Count == 0) {
+                m_outputSink?.Invoke(string.Empty);
+                return DynValue.Nil;
+            }
+            if (args.Count == 1) {
+                m_outputSink?.Invoke(args[0].ToPrintString());
+                return DynValue.Nil;
+            }
+            string text = string.Join("\t", args.GetArray().Select(static value => value.ToPrintString()));
+            m_outputSink?.Invoke(text);
             return DynValue.Nil;
         }
-        if (args.Count == 1) {
-            m_outputSink?.Invoke(args[0].ToPrintString());
+        catch (Exception ex) {
+            ReportRuntimeError(FormatException(ex));
             return DynValue.Nil;
         }
-        string text = string.Join("\t", args.GetArray().Select(static value => value.ToPrintString()));
-        m_outputSink?.Invoke(text);
-        return DynValue.Nil;
     }
 
     DynValue Spawn(ScriptExecutionContext context, CallbackArguments args) {
-        if (m_script == null) {
+        try {
+            if (m_script == null) {
+                return DynValue.Nil;
+            }
+            DynValue fn = args.AsType(0, "spawn", DataType.Function, false);
+            DynValue coroutine = m_script.CreateCoroutine(fn);
+            m_spawnQueue.Add(coroutine);
             return DynValue.Nil;
         }
-        DynValue fn = args.AsType(0, "spawn", DataType.Function, false);
-        DynValue coroutine = m_script.CreateCoroutine(fn);
-        m_spawnQueue.Add(coroutine);
-        return DynValue.Nil;
+        catch (Exception ex) {
+            ReportRuntimeError(FormatException(ex));
+            return DynValue.Nil;
+        }
     }
 
     struct CoroutineEntry {

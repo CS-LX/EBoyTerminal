@@ -7,7 +7,11 @@
   },
   "ContentWidgets": {
     "MoonTerminalScriptDialog": {
-      "1": "Moon Terminal"
+      "1": "Moon Terminal",
+      "2": "Output",
+      "3": "Expand",
+      "OutputExpand": "Expand",
+      "OutputCollapse": "Collapse"
     }
   },
   "Components": {

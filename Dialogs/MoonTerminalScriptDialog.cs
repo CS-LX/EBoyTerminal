@@ -3,6 +3,7 @@ using Engine;
 using Game;
 using SCIENEW;
 using SCIENEW.Utils;
+using EBoyTerminal.Runtime;
 
 namespace EBoyTerminal {
     public class MoonTerminalScriptDialog : Dialog {
@@ -15,9 +16,23 @@ namespace EBoyTerminal {
 
         bool m_dismissing;
 
+        bool m_outputExpanded;
+
+        string m_lastSyncedOutput = string.Empty;
+
+        LuaMachineState m_previousLuaState = LuaMachineState.Stopped;
+
         CodeBoxWidget m_scriptText;
 
         LabelWidget m_titleWidget;
+
+        LabelWidget m_outputToggleHint;
+
+        LabelWidget m_outputText;
+
+        Widget m_outputBody;
+
+        ScrollPanelWidget m_outputScroll;
 
         ClickableWidget m_saveButton;
 
@@ -29,6 +44,8 @@ namespace EBoyTerminal {
 
         ClickableWidget m_closeButton;
 
+        ClickableWidget m_outputToggleButton;
+
         public MoonTerminalScriptDialog(ComponentMoonTerminal component, ComponentPlayer? player) {
             m_component = component;
             m_player = player;
@@ -37,11 +54,16 @@ namespace EBoyTerminal {
             LoadContents(this, node);
             m_scriptText = Children.Find<CodeBoxWidget>("ScriptText");
             m_titleWidget = Children.Find<LabelWidget>("Title");
+            m_outputToggleHint = Children.Find<LabelWidget>("OutputToggleHint");
+            m_outputText = Children.Find<LabelWidget>("OutputText");
+            m_outputBody = Children.Find<Widget>("OutputBody");
+            m_outputScroll = Children.Find<ScrollPanelWidget>("OutputScroll");
             m_saveButton = Children.Find<ClickableWidget>("SaveButton");
             m_runButton = Children.Find<ClickableWidget>("RunButton");
             m_pauseButton = Children.Find<ClickableWidget>("PauseButton");
             m_stopButton = Children.Find<ClickableWidget>("StopButton");
             m_closeButton = Children.Find<ClickableWidget>("CloseButton");
+            m_outputToggleButton = Children.Find<ClickableWidget>("OutputToggleButton");
             m_baseTitle = m_titleWidget.Text;
             m_scriptText.Font = IndustrialModLoader.PixelFont;
             m_scriptText.TextureLinearFilter = false;
@@ -55,7 +77,14 @@ namespace EBoyTerminal {
             m_scriptText.ClearUndoHistory();
             m_scriptText.TextChanged += OnScriptTextChanged;
             m_scriptText.HasFocus = true;
+            m_outputText.Font = IndustrialModLoader.PixelFont;
+            m_outputText.FontScale = 1f;
+            m_outputText.TextureLinearFilter = false;
+            m_outputText.Text = string.Empty;
+            SetOutputExpanded(expanded: false);
             m_component.SetOpenDialog(this);
+            m_previousLuaState = m_component.LuaState;
+            SyncOutputPanel(forceScroll: true);
             UpdateTitle();
         }
 
@@ -75,6 +104,9 @@ namespace EBoyTerminal {
             if (Input.Cancel || m_closeButton.IsClicked) {
                 Dismiss();
             }
+            else if (m_outputToggleButton.IsClicked) {
+                SetOutputExpanded(!m_outputExpanded);
+            }
             else if (m_saveButton.IsClicked) {
                 Save();
             }
@@ -84,17 +116,61 @@ namespace EBoyTerminal {
                     return;
                 }
                 Save();
-                m_component.StartScript();
-                UpdateTitle();
+                SetOutputExpanded(expanded: true);
+                if (!m_component.StartScript()) {
+                    m_component.EnsureLastErrorVisible();
+                }
             }
             else if (m_pauseButton.IsClicked) {
                 m_component.PauseScript();
-                UpdateTitle();
             }
             else if (m_stopButton.IsClicked) {
                 m_component.StopScript();
-                UpdateTitle();
             }
+
+            HandleLuaStateTransitions();
+            SyncOutputPanel(forceScroll: false);
+            UpdateTitle();
+        }
+
+        void HandleLuaStateTransitions() {
+            LuaMachineState state = m_component.LuaState;
+            if (state == LuaMachineState.Running && m_previousLuaState != LuaMachineState.Running) {
+                SetOutputExpanded(expanded: true);
+            }
+            if (state == LuaMachineState.Error && m_previousLuaState != LuaMachineState.Error) {
+                SetOutputExpanded(expanded: true);
+            }
+            m_previousLuaState = state;
+        }
+
+        void SetOutputExpanded(bool expanded) {
+            m_outputExpanded = expanded;
+            m_outputBody.IsVisible = expanded;
+            m_outputToggleHint.Text = LanguageUtils.GetText(
+                this,
+                expanded ? "OutputCollapse" : "OutputExpand");
+        }
+
+        void SyncOutputPanel(bool forceScroll) {
+            string output = m_component.GetDialogOutputText();
+            if (output != m_lastSyncedOutput) {
+                m_lastSyncedOutput = output;
+                m_outputText.Text = string.IsNullOrEmpty(output) ? string.Empty : output;
+                forceScroll = true;
+            }
+            if (!m_outputExpanded) {
+                return;
+            }
+            if (forceScroll) {
+                ScrollOutputToBottom();
+            }
+        }
+
+        void ScrollOutputToBottom() {
+            float scrollAreaLength = m_outputScroll.CalculateScrollAreaLength();
+            float viewHeight = m_outputScroll.ActualSize.Y;
+            m_outputScroll.ScrollPosition = Math.Max(0f, scrollAreaLength - viewHeight);
         }
 
         public void CloseDueToPowerLoss() {
@@ -123,7 +199,7 @@ namespace EBoyTerminal {
         void Save() {
             m_savedText = m_scriptText.Text;
             m_component.ScriptText = m_savedText;
-            UpdateTitle();
+            SyncOutputPanel(forceScroll: true);
         }
 
         void Dismiss() {

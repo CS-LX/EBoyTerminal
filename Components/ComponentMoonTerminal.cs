@@ -10,10 +10,12 @@ namespace EBoyTerminal {
         public const string ScriptTextKey = "ScriptText";
         public const string MaxOutputLinesKey = "MaxOutputLines";
         public const int DefaultMaxOutputLines = 512;
+        public const int DialogOutputLineCount = 32;
 
         readonly List<string> m_outputLines = new();
 
         string m_scriptText = string.Empty;
+        string? m_lastReportedError;
 
         ComponentBlockEntity m_blockEntity = null!;
         ComponentLuaScriptHost m_luaScriptHost = null!;
@@ -40,6 +42,8 @@ namespace EBoyTerminal {
         public ComponentLuaScriptHost LuaScriptHost => m_luaScriptHost;
 
         public LuaMachineState LuaState => m_luaScriptHost?.State ?? LuaMachineState.Stopped;
+
+        public string? LastScriptError => m_luaScriptHost?.LastError;
 
         public IReadOnlyList<string> OutputLines => m_outputLines;
 
@@ -94,6 +98,9 @@ namespace EBoyTerminal {
             return string.Join("\n", m_outputLines.Skip(start));
         }
 
+        /// <summary>脚本对话框输出区：保留末尾 <see cref="DialogOutputLineCount"/> 行。</summary>
+        public string GetDialogOutputText() => GetScreenText(DialogOutputLineCount);
+
         public void ClearOutput() => m_outputLines.Clear();
 
         public void AppendOutput(string text) {
@@ -115,6 +122,14 @@ namespace EBoyTerminal {
             }
         }
 
+        void AppendError(string message) {
+            if (string.IsNullOrEmpty(message) || message == m_lastReportedError) {
+                return;
+            }
+            m_lastReportedError = message;
+            AppendOutput($"[error] {message}");
+        }
+
         void AddOutputLine(string line) {
             m_outputLines.Add(line);
             while (m_outputLines.Count > MaxOutputLines) {
@@ -127,11 +142,27 @@ namespace EBoyTerminal {
                 return;
             }
             m_luaScriptHost.Host.OnOutput = AppendOutput;
+            m_luaScriptHost.Host.OnError = AppendError;
             m_luaScriptHost.Host.RegisterApiTable("terminal", new Dictionary<string, DynValue> {
-                ["write"] = DynValue.NewCallback(TerminalWrite),
-                ["print"] = DynValue.NewCallback(TerminalPrint),
-                ["clear"] = DynValue.NewCallback(TerminalClear),
-                ["lines"] = DynValue.NewCallback(TerminalLines)
+                ["write"] = SafeTerminalCallback(TerminalWrite),
+                ["print"] = SafeTerminalCallback(TerminalPrint),
+                ["clear"] = SafeTerminalCallback(TerminalClear),
+                ["lines"] = SafeTerminalCallback(TerminalLines)
+            });
+        }
+
+        DynValue SafeTerminalCallback(Func<ScriptExecutionContext, CallbackArguments, DynValue> handler) {
+            return DynValue.NewCallback((context, args) => {
+                try {
+                    return handler(context, args);
+                }
+                catch (Exception ex) {
+                    string message = ex is InterpreterException interpreterException
+                        ? interpreterException.DecoratedMessage ?? interpreterException.Message
+                        : ex.Message;
+                    m_luaScriptHost.Host.Machine.ReportRuntimeError(message);
+                    return DynValue.Nil;
+                }
             });
         }
 
@@ -139,8 +170,16 @@ namespace EBoyTerminal {
             if (m_luaScriptHost == null) {
                 return;
             }
+            m_lastReportedError = null;
             InitializeLuaHost();
             m_luaScriptHost.ReloadFromSource(m_scriptText);
+        }
+
+        public void EnsureLastErrorVisible() {
+            string? error = LastScriptError;
+            if (!string.IsNullOrEmpty(error)) {
+                AppendError(error);
+            }
         }
 
         DynValue TerminalWrite(ScriptExecutionContext context, CallbackArguments args) {

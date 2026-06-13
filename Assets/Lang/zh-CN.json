@@ -7,7 +7,11 @@
   },
   "ContentWidgets": {
     "MoonTerminalScriptDialog": {
-      "1": "月之终端"
+      "1": "月之终端",
+      "2": "输出",
+      "3": "展开",
+      "OutputExpand": "展开",
+      "OutputCollapse": "收起"
     }
   },
   "Components": {

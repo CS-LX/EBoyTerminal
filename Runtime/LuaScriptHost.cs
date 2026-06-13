@@ -17,6 +17,9 @@ public sealed class LuaScriptHost {
     /// <summary>Lua <c>print</c> 等标准输出回调；由终端 Component 接入显示屏缓冲。</summary>
     public Action<string>? OnOutput { get; set; }
 
+    /// <summary>脚本编译/运行失败回调；与 <see cref="OnOutput"/> 对称，不向游戏主循环抛异常。</summary>
+    public Action<string>? OnError { get; set; }
+
     public Script Script {
         get {
             m_script ??= CreateScript();
@@ -30,6 +33,7 @@ public sealed class LuaScriptHost {
         m_script = CreateScript();
         m_machine.Bind(Script);
         m_machine.SetOutputSink(OnOutput);
+        m_machine.OnError = OnError;
     }
 
     public bool TryLoad(string source, string? chunkName = null) {
@@ -57,7 +61,11 @@ public sealed class LuaScriptHost {
             result = Script.DoString(source, null, chunkName ?? "chunk");
             return true;
         }
-        catch (InterpreterException) {
+        catch (Exception ex) {
+            string message = ex is InterpreterException interpreterException
+                ? interpreterException.DecoratedMessage ?? interpreterException.Message
+                : ex.Message;
+            m_machine.ReportRuntimeError(message);
             return false;
         }
     }

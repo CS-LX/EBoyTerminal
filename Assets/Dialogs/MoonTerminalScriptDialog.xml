@@ -30,9 +30,23 @@
 				</CanvasWidget>
 			</StackPanelWidget>
 		</CanvasWidget>
-		<CanvasWidget Size="Infinity, Infinity" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+		<CanvasWidget Name="CodePanel" Size="Infinity, Infinity" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
 			<RectangleWidget OutlineColor="0, 0, 0, 0" FillColor="0, 0, 0, 102" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Size="Infinity, Infinity"/>
 			<LuaCodeBoxWidget xmlns="runtime-namespace:EBoyTerminal" Name="ScriptText" Color="255, 255, 255, 255" Margin="12, 8" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" MaximumLength="32768"/>
 		</CanvasWidget>
+		<StackPanelWidget Name="OutputSection" Direction="Vertical" HorizontalAlignment="Stretch" VerticalAlignment="Near">
+			<CanvasWidget Size="Infinity, 28" HorizontalAlignment="Stretch" VerticalAlignment="Near">
+				<RectangleWidget OutlineColor="0, 0, 0, 0" FillColor="0, 0, 0, 140" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Size="Infinity, Infinity"/>
+				<LabelWidget Name="OutputTitle" Text="[MoonTerminalScriptDialog:2]" Color="200, 200, 200, 255" Margin="12, 0" VerticalAlignment="Center" HorizontalAlignment="Near"/>
+				<LabelWidget Name="OutputToggleHint" Text="[MoonTerminalScriptDialog:3]" Color="160, 160, 160, 255" Margin="0, 0, 12, 0" VerticalAlignment="Center" HorizontalAlignment="Far"/>
+				<ClickableWidget Name="OutputToggleButton" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SoundName="Audio/UI/ButtonClick"/>
+			</CanvasWidget>
+			<CanvasWidget Name="OutputBody" Size="Infinity, 140" HorizontalAlignment="Stretch" VerticalAlignment="Near">
+				<RectangleWidget OutlineColor="0, 0, 0, 0" FillColor="0, 0, 0, 102" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Size="Infinity, Infinity"/>
+				<ScrollPanelWidget Name="OutputScroll" Direction="Vertical" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="8, 6">
+					<LabelWidget Name="OutputText" WordWrap="true" Color="120, 255, 120, 255" HorizontalAlignment="Stretch" VerticalAlignment="Near"/>
+				</ScrollPanelWidget>
+			</CanvasWidget>
+		</StackPanelWidget>
 	</StackPanelWidget>
 </CanvasWidget>
