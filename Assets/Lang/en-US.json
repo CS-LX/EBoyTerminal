@@ -11,6 +11,10 @@
     }
   },
   "Components": {
+    "ComponentMoonTerminal": {
+      "NoPowerInteract": "The terminal won't respond... is it unplugged?",
+      "PowerLostClose": "Power lost. Script saved and terminal closed."
+    },
     "ComponentMoonTerminalScreenProvider": {
       "ProviderDescription": "Moon Terminal Lua output"
     }

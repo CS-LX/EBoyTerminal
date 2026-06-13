@@ -2,13 +2,15 @@ using Engine;
 using Engine.Graphics;
 using Game;
 using SCIENEW;
+using SCIENEW.VoltNet;
+using EBoyTerminal.VoltNet;
 
 namespace EBoyTerminal {
     /// <summary>
     /// 月之终端方块；材质来自 <see cref="EBoyTerminalLoader.BlockTexture"/>。
     /// 槽位：顶 0、侧/背 1、底 2、正面 3。
     /// </summary>
-    public class MoonTerminalBlock : CubeBlock {
+    public class MoonTerminalBlock : CubeBlock, IVoltDevice {
         public static int Index = 550;
 
         const int SlotTop = 0;
@@ -43,6 +45,21 @@ namespace EBoyTerminal {
             }
             return SlotSideBack;
         }
+
+        public HashSet<int> GetFaceMask(int value) {
+            HashSet<int> faces = [0, 1, 2, 3, 4, 5];
+            faces.Remove(GetFacing(value));
+            return faces;
+        }
+
+        public VoltElement? GetVoltElement(SubsystemVoltNet subsystemVoltNet, SubsystemTerrain subsystemTerrain, Point3 position, int blockValue)
+            => new MoonTerminalVoltElement(subsystemVoltNet, subsystemTerrain, position, blockValue);
+
+        public float GetStandardPL(int value) => 6;
+
+        public float GetStandardUL(int value) => 1;
+
+        static int GetFacing(int value) => Terrain.ExtractData(value) & 3;
 
         public override BlockPlacementData GetPlacementValue(SubsystemTerrain subsystemTerrain,
             ComponentMiner componentMiner,

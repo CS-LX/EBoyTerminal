@@ -29,6 +29,9 @@ namespace EBoyTerminal {
         }
 
         public void Draw(Screen screen, Project project, Camera camera, int drawOrder) {
+            if (!m_terminal.IsPowered) {
+                return;
+            }
             int visibleLines = CalculateVisibleLineCount(screen);
             float screenWidth = (screen.WorldPos2 - screen.WorldPos1).Length();
             float horizontalScale = TextScale * screen.Edge1.Length();

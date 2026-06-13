@@ -11,6 +11,10 @@
     }
   },
   "Components": {
+    "ComponentMoonTerminal": {
+      "NoPowerInteract": "终端毫无反应……是不是没接电？",
+      "PowerLostClose": "供电中断，脚本已保存，终端已关闭。"
+    },
     "ComponentMoonTerminalScreenProvider": {
       "ProviderDescription": "月之终端 Lua 输出"
     }

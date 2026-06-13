@@ -1,11 +1,12 @@
 using Game;
 using GameEntitySystem;
 using MoonSharp.Interpreter;
+using SCIENEW.VoltNet;
 using TemplatesDatabase;
 using EBoyTerminal.Runtime;
 
 namespace EBoyTerminal {
-    public class ComponentMoonTerminal : Component {
+    public class ComponentMoonTerminal : Component, IUpdateable {
         public const string ScriptTextKey = "ScriptText";
         public const string MaxOutputLinesKey = "MaxOutputLines";
         public const int DefaultMaxOutputLines = 512;
@@ -14,7 +15,15 @@ namespace EBoyTerminal {
 
         string m_scriptText = string.Empty;
 
+        ComponentBlockEntity m_blockEntity = null!;
         ComponentLuaScriptHost m_luaScriptHost = null!;
+        SubsystemVoltNet m_subsystemVoltNet = null!;
+
+        MoonTerminalScriptDialog? m_openDialog;
+        WorkState m_workState = WorkState.Underpowered;
+        bool m_wasPowered;
+
+        public UpdateOrder UpdateOrder => UpdateOrder.Default;
 
         public string ScriptText {
             get => m_scriptText;
@@ -34,19 +43,45 @@ namespace EBoyTerminal {
 
         public IReadOnlyList<string> OutputLines => m_outputLines;
 
+        public bool IsPowered => m_workState == WorkState.Active;
+
         /// <summary>输出缓冲最多保留的行数；屏上实际可见行数由 Screen 尺寸动态决定。</summary>
         public int MaxOutputLines { get; private set; } = DefaultMaxOutputLines;
 
         public override void Load(ValuesDictionary valuesDictionary, IdToEntityMap idToEntityMap) {
+            m_blockEntity = Entity.FindComponent<ComponentBlockEntity>(throwOnError: true);
             m_luaScriptHost = Entity.FindComponent<ComponentLuaScriptHost>(throwOnError: true);
+            m_subsystemVoltNet = Project.FindSubsystem<SubsystemVoltNet>(throwOnError: true);
             m_scriptText = valuesDictionary.GetValue(ScriptTextKey, string.Empty);
             MaxOutputLines = Math.Max(1, valuesDictionary.GetValue(MaxOutputLinesKey, DefaultMaxOutputLines));
             PushScriptToHost();
+            RefreshWorkState();
+            m_wasPowered = IsPowered;
         }
 
         public override void Save(ValuesDictionary valuesDictionary, EntityToIdMap entityToIdMap) {
             valuesDictionary.SetValue(ScriptTextKey, m_scriptText);
             valuesDictionary.SetValue(MaxOutputLinesKey, MaxOutputLines);
+        }
+
+        public void SetOpenDialog(MoonTerminalScriptDialog? dialog) => m_openDialog = dialog;
+
+        public void Update(float dt) {
+            RefreshWorkState();
+            if (m_wasPowered && !IsPowered) {
+                HandlePowerLost();
+            }
+            m_wasPowered = IsPowered;
+        }
+
+        void RefreshWorkState() {
+            VoltElement? voltElement = m_subsystemVoltNet.GetVoltElement(m_blockEntity.Coordinates);
+            m_workState = voltElement?.CurrentWorkState ?? WorkState.Broken;
+        }
+
+        void HandlePowerLost() {
+            StopScript();
+            m_openDialog?.CloseDueToPowerLoss();
         }
 
         /// <summary>取缓冲末尾最多 <paramref name="maxDisplayLines"/> 行，类似终端滚动区。</summary>
@@ -131,6 +166,9 @@ namespace EBoyTerminal {
         }
 
         public bool StartScript() {
+            if (!IsPowered) {
+                return false;
+            }
             if (m_luaScriptHost?.State is LuaMachineState.Ready or LuaMachineState.Stopped) {
                 ClearOutput();
             }

@@ -2,14 +2,18 @@ using System.Xml.Linq;
 using Engine;
 using Game;
 using SCIENEW;
+using SCIENEW.Utils;
 
 namespace EBoyTerminal {
     public class MoonTerminalScriptDialog : Dialog {
         readonly ComponentMoonTerminal m_component;
+        readonly ComponentPlayer? m_player;
 
         string m_savedText;
 
         string m_baseTitle;
+
+        bool m_dismissing;
 
         CodeBoxWidget m_scriptText;
 
@@ -25,8 +29,9 @@ namespace EBoyTerminal {
 
         ClickableWidget m_closeButton;
 
-        public MoonTerminalScriptDialog(ComponentMoonTerminal component) {
+        public MoonTerminalScriptDialog(ComponentMoonTerminal component, ComponentPlayer? player) {
             m_component = component;
+            m_player = player;
             m_savedText = component.ScriptText ?? string.Empty;
             XElement node = ContentManager.Get<XElement>("Dialogs/MoonTerminalScriptDialog");
             LoadContents(this, node);
@@ -49,6 +54,7 @@ namespace EBoyTerminal {
             m_scriptText.Text = m_savedText;
             m_scriptText.TextChanged += OnScriptTextChanged;
             m_scriptText.HasFocus = true;
+            m_component.SetOpenDialog(this);
             UpdateTitle();
         }
 
@@ -61,6 +67,10 @@ namespace EBoyTerminal {
         }
 
         public override void Update() {
+            if (!m_component.IsPowered) {
+                CloseDueToPowerLoss();
+                return;
+            }
             if (Input.Cancel || m_closeButton.IsClicked) {
                 Dismiss();
             }
@@ -68,6 +78,10 @@ namespace EBoyTerminal {
                 Save();
             }
             else if (m_runButton.IsClicked) {
+                if (!m_component.IsPowered) {
+                    ShowNoPowerMessage();
+                    return;
+                }
                 Save();
                 m_component.StartScript();
                 UpdateTitle();
@@ -82,6 +96,29 @@ namespace EBoyTerminal {
             }
         }
 
+        public void CloseDueToPowerLoss() {
+            if (m_dismissing) {
+                return;
+            }
+            m_dismissing = true;
+            m_component.StopScript();
+            Save();
+            m_player?.ComponentGui.DisplaySmallMessage(
+                LanguageUtils.GetText(m_component, "PowerLostClose"),
+                Color.White,
+                blinking: true,
+                playNotificationSound: true);
+            Dismiss();
+        }
+
+        void ShowNoPowerMessage() {
+            m_player?.ComponentGui.DisplaySmallMessage(
+                LanguageUtils.GetText(m_component, "NoPowerInteract"),
+                Color.White,
+                blinking: true,
+                playNotificationSound: true);
+        }
+
         void Save() {
             m_savedText = m_scriptText.Text;
             m_component.ScriptText = m_savedText;
@@ -89,6 +126,7 @@ namespace EBoyTerminal {
         }
 
         void Dismiss() {
+            m_component.SetOpenDialog(null);
             DialogsManager.HideDialog(this);
         }
     }
