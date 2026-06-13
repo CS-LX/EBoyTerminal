@@ -84,6 +84,7 @@ namespace EBoyTerminal {
         }
 
         void HandlePowerLost() {
+            Entity.FindComponent<ComponentMoonTerminalElectric>(throwOnError: false)?.OnPowerLost();
             StopScript();
             m_openDialog?.CloseDueToPowerLoss();
         }

@@ -3,6 +3,7 @@ using Engine.Graphics;
 using Game;
 using SCIENEW;
 using SCIENEW.VoltNet;
+using EBoyTerminal.Electric;
 using EBoyTerminal.VoltNet;
 
 namespace EBoyTerminal {
@@ -10,7 +11,7 @@ namespace EBoyTerminal {
     /// 月之终端方块；材质来自 <see cref="EBoyTerminalLoader.BlockTexture"/>。
     /// 槽位：顶 0、侧/背 1、底 2、正面 3。
     /// </summary>
-    public class MoonTerminalBlock : CubeBlock, IVoltDevice {
+    public class MoonTerminalBlock : CubeBlock, IVoltDevice, IElectricElementBlock {
         public static int Index = 550;
 
         const int SlotTop = 0;
@@ -58,6 +59,20 @@ namespace EBoyTerminal {
         public float GetStandardPL(int value) => 6;
 
         public float GetStandardUL(int value) => 1;
+
+        public ElectricElement CreateElectricElement(SubsystemElectricity subsystemElectricity, int value, int x, int y, int z)
+            => new MoonTerminalElectricElement(subsystemElectricity, x, y, z, Terrain.ExtractData(value));
+
+        public ElectricConnectorType? GetConnectorType(
+            SubsystemTerrain terrain,
+            int value,
+            int face,
+            int connectorFace,
+            int x,
+            int y,
+            int z) => MoonTerminalElectricPorts.GetConnectorType(Terrain.ExtractData(value), face);
+
+        public int GetConnectionMask(int value) => int.MaxValue;
 
         static int GetFacing(int value) => Terrain.ExtractData(value) & 3;
 
