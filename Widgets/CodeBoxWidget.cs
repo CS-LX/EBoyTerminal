@@ -12,6 +12,7 @@ namespace EBoyTerminal {
         const float GutterPadding = 8f;
         const float ScrollBarThickness = 4f;
         const float ScrollBarMinThumbLength = 16f;
+        const double DuplicatePasteWindowSeconds = 0.5;
         static readonly Color ScrollBarTrackColor = new(0, 0, 0, 80);
         static readonly Color ScrollBarThumbColor = new(220, 220, 220, 160);
         public enum CodeStyle {
@@ -49,7 +50,11 @@ namespace EBoyTerminal {
         EditSnapshot? m_pendingUndoSnapshot;
         EditSnapshot? m_pendingRedoSnapshot;
         bool m_isApplyingHistorySnapshot;
+        bool m_isCollapsingDuplicatePaste;
         int? m_preferredCaretColumn;
+        string? m_lastPastedText;
+        int m_lastPasteStart = -1;
+        double m_lastPasteTime = double.NegativeInfinity;
 
         public float ScrollY { get; set; }
 
@@ -89,6 +94,9 @@ namespace EBoyTerminal {
         public CodeBoxWidget() {
             m_lastEditSnapshot = CaptureEditSnapshot();
             TextChanged += _ => {
+                if (CollapseDuplicatePasteIfNeeded()) {
+                    return;
+                }
                 TrackUndoSnapshot();
                 m_preferredCaretColumn = null;
                 LimitScroll();
@@ -130,8 +138,48 @@ namespace EBoyTerminal {
             m_lastEditSnapshot = CaptureEditSnapshot();
         }
 
+        public bool PasteText(string? value) {
+            if (string.IsNullOrEmpty(value)) {
+                return false;
+            }
+            string text = value.ReplaceLineEndings("\n");
+            CommitPendingUndoSnapshot();
+            m_lastPastedText = text;
+            m_lastPasteStart = GetSelectionStart();
+            m_lastPasteTime = Time.RealTime;
+            EnterText(text);
+            return true;
+        }
+
         EditSnapshot CaptureEditSnapshot() {
             return new EditSnapshot(Text, Caret, SelectionLength);
+        }
+
+        bool CollapseDuplicatePasteIfNeeded() {
+            if (m_isCollapsingDuplicatePaste || string.IsNullOrEmpty(m_lastPastedText)) {
+                return false;
+            }
+            if (Time.RealTime - m_lastPasteTime > DuplicatePasteWindowSeconds) {
+                m_lastPastedText = null;
+                return false;
+            }
+            string pastedText = m_lastPastedText;
+            int firstStart = m_lastPasteStart;
+            int secondStart = firstStart + pastedText.Length;
+            if (firstStart < 0
+                || secondStart + pastedText.Length > Text.Length
+                || !Text.AsSpan(firstStart, pastedText.Length).SequenceEqual(pastedText)
+                || !Text.AsSpan(secondStart, pastedText.Length).SequenceEqual(pastedText)) {
+                return false;
+            }
+
+            m_isCollapsingDuplicatePaste = true;
+            Text = Text.Remove(secondStart, pastedText.Length);
+            Caret = Math.Clamp(secondStart, 0, Text.Length);
+            SelectionLength = 0;
+            m_isCollapsingDuplicatePaste = false;
+            m_lastPastedText = null;
+            return true;
         }
 
         void TrackUndoSnapshot() {
@@ -407,6 +455,10 @@ namespace EBoyTerminal {
                 DeleteSelection();
                 return;
             }
+            if (Keyboard.IsKeyDownOnce(Key.V)) {
+                PasteText(ClipboardManager.ClipboardString);
+                return;
+            }
         }
 
         public void MoveCaretVertically(int direction) {
@@ -423,6 +475,10 @@ namespace EBoyTerminal {
             SelectionLength = 0;
             SelectionStarted = false;
             m_preferredCaretColumn = desiredColumn;
+        }
+
+        int GetSelectionStart() {
+            return SelectionLength < 0 ? Caret + SelectionLength : Caret;
         }
 
         int GetLineCount() {
