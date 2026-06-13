@@ -41,9 +41,30 @@ namespace EBoyTerminal {
             }
         }
 
+        readonly record struct EditSnapshot(string Text, int Caret, int SelectionLength);
+
+        readonly List<EditSnapshot> m_undoStack = new();
+        readonly List<EditSnapshot> m_redoStack = new();
+        EditSnapshot m_lastEditSnapshot;
+        EditSnapshot? m_pendingUndoSnapshot;
+        EditSnapshot? m_pendingRedoSnapshot;
+        bool m_isApplyingHistorySnapshot;
+        int? m_preferredCaretColumn;
+
         public float ScrollY { get; set; }
 
         public bool ShowLineNumbers { get; set; } = true;
+
+        public int UndoHistoryLimit { get; set; } = 128;
+
+        public bool CanUndo {
+            get {
+                CommitPendingUndoSnapshot();
+                return m_undoStack.Count > 0;
+            }
+        }
+
+        public bool CanRedo => m_redoStack.Count > 0;
 
         public Color LineNumberColor { get; set; } = new(160, 160, 160, 255);
 
@@ -66,12 +87,112 @@ namespace EBoyTerminal {
         public float LineNumberGutterWidth => ShowLineNumbers ? CalculateLineNumberGutterWidth() : 0f;
 
         public CodeBoxWidget() {
+            m_lastEditSnapshot = CaptureEditSnapshot();
             TextChanged += _ => {
+                TrackUndoSnapshot();
+                m_preferredCaretColumn = null;
                 LimitScroll();
                 if (HasFocus) {
                     EnsureCaretVisible();
                 }
             };
+        }
+
+        public bool Undo() {
+            CommitPendingUndoSnapshot();
+            if (m_undoStack.Count == 0) {
+                return false;
+            }
+            EditSnapshot current = CaptureEditSnapshot();
+            EditSnapshot snapshot = PopSnapshot(m_undoStack);
+            PushSnapshot(m_redoStack, current);
+            ApplyEditSnapshot(snapshot);
+            return true;
+        }
+
+        public bool Redo() {
+            CommitPendingUndoSnapshot();
+            if (m_redoStack.Count == 0) {
+                return false;
+            }
+            EditSnapshot current = CaptureEditSnapshot();
+            EditSnapshot snapshot = PopSnapshot(m_redoStack);
+            PushSnapshot(m_undoStack, current);
+            ApplyEditSnapshot(snapshot);
+            return true;
+        }
+
+        public void ClearUndoHistory() {
+            m_undoStack.Clear();
+            m_redoStack.Clear();
+            m_pendingUndoSnapshot = null;
+            m_pendingRedoSnapshot = null;
+            m_lastEditSnapshot = CaptureEditSnapshot();
+        }
+
+        EditSnapshot CaptureEditSnapshot() {
+            return new EditSnapshot(Text, Caret, SelectionLength);
+        }
+
+        void TrackUndoSnapshot() {
+            EditSnapshot current = CaptureEditSnapshot();
+            if (m_isApplyingHistorySnapshot) {
+                m_lastEditSnapshot = current;
+                return;
+            }
+            if (current.Text == m_lastEditSnapshot.Text) {
+                m_lastEditSnapshot = current;
+                return;
+            }
+            m_pendingUndoSnapshot ??= m_lastEditSnapshot;
+            m_pendingRedoSnapshot = current;
+            m_redoStack.Clear();
+            m_lastEditSnapshot = current;
+        }
+
+        void CommitPendingUndoSnapshot() {
+            if (!m_pendingUndoSnapshot.HasValue || !m_pendingRedoSnapshot.HasValue) {
+                return;
+            }
+            EditSnapshot undoSnapshot = m_pendingUndoSnapshot.Value;
+            EditSnapshot redoSnapshot = m_pendingRedoSnapshot.Value;
+            if (undoSnapshot.Text != redoSnapshot.Text) {
+                PushSnapshot(m_undoStack, undoSnapshot);
+            }
+            m_pendingUndoSnapshot = null;
+            m_pendingRedoSnapshot = null;
+            m_lastEditSnapshot = CaptureEditSnapshot();
+        }
+
+        void ApplyEditSnapshot(EditSnapshot snapshot) {
+            m_isApplyingHistorySnapshot = true;
+            Text = snapshot.Text;
+            Caret = Math.Clamp(snapshot.Caret, 0, Text.Length);
+            SelectionLength = Math.Clamp(snapshot.SelectionLength, -Caret, Text.Length - Caret);
+            m_isApplyingHistorySnapshot = false;
+            m_lastEditSnapshot = CaptureEditSnapshot();
+            m_preferredCaretColumn = null;
+            LimitScroll();
+            if (HasFocus) {
+                EnsureCaretVisible();
+            }
+        }
+
+        void PushSnapshot(List<EditSnapshot> stack, EditSnapshot snapshot) {
+            if (stack.Count > 0 && stack[^1].Text == snapshot.Text && stack[^1].Caret == snapshot.Caret && stack[^1].SelectionLength == snapshot.SelectionLength) {
+                return;
+            }
+            stack.Add(snapshot);
+            int limit = Math.Max(1, UndoHistoryLimit);
+            if (stack.Count > limit) {
+                stack.RemoveRange(0, stack.Count - limit);
+            }
+        }
+
+        static EditSnapshot PopSnapshot(List<EditSnapshot> stack) {
+            EditSnapshot snapshot = stack[^1];
+            stack.RemoveAt(stack.Count - 1);
+            return snapshot;
         }
 
         public override void Update() {
@@ -156,26 +277,36 @@ namespace EBoyTerminal {
                     Caret = Math.Max(0, Caret - 1);
                     SelectionLength = 0;
                     SelectionStarted = false;
+                    m_preferredCaretColumn = null;
                     FocusStartTime = Time.RealTime;
                 }
                 if (Keyboard.IsKeyDownRepeat(Key.RightArrow)) {
                     Caret = Math.Min(Text.Length, Caret + 1);
                     SelectionLength = 0;
                     SelectionStarted = false;
+                    m_preferredCaretColumn = null;
                     FocusStartTime = Time.RealTime;
                 }
-                if (Keyboard.IsKeyDownOnce(Key.Home)
-                    || Keyboard.IsKeyDownOnce(Key.UpArrow)) {
-                    Caret = 0;
+                if (Keyboard.IsKeyDownOnce(Key.Home)) {
+                    Caret = GetLineStart(Caret);
                     SelectionLength = 0;
                     SelectionStarted = false;
+                    m_preferredCaretColumn = null;
                     FocusStartTime = Time.RealTime;
                 }
-                if (Keyboard.IsKeyDownOnce(Key.End)
-                    || Keyboard.IsKeyDownOnce(Key.DownArrow)) {
-                    Caret = Text.Length;
+                if (Keyboard.IsKeyDownOnce(Key.End)) {
+                    Caret = GetLineEnd(Caret);
                     SelectionLength = 0;
                     SelectionStarted = false;
+                    m_preferredCaretColumn = null;
+                    FocusStartTime = Time.RealTime;
+                }
+                if (Keyboard.IsKeyDownOnce(Key.UpArrow)) {
+                    MoveCaretVertically(-1);
+                    FocusStartTime = Time.RealTime;
+                }
+                if (Keyboard.IsKeyDownOnce(Key.DownArrow)) {
+                    MoveCaretVertically(1);
                     FocusStartTime = Time.RealTime;
                 }
             }
@@ -243,6 +374,7 @@ namespace EBoyTerminal {
                 FocusedTextBox = textBoxes[(thisIndex + 1) % textBoxes.Count];
             }
 #endif
+            CommitPendingUndoSnapshot();
             if (HasFocus) {
                 EnsureCaretVisible();
             }
@@ -252,9 +384,18 @@ namespace EBoyTerminal {
             if (!HasFocus || !Keyboard.IsKeyDown(Key.Control)) {
                 return;
             }
+            if (Keyboard.IsKeyDownOnce(Key.Z)) {
+                Undo();
+                return;
+            }
+            if (Keyboard.IsKeyDownOnce(Key.Y)) {
+                Redo();
+                return;
+            }
             if (Keyboard.IsKeyDownOnce(Key.A)) {
                 Caret = 0;
                 SelectionLength = Text.Length;
+                m_preferredCaretColumn = null;
                 return;
             }
             if (Keyboard.IsKeyDownOnce(Key.C) && SelectionLength != 0) {
@@ -266,12 +407,68 @@ namespace EBoyTerminal {
                 DeleteSelection();
                 return;
             }
-            if (Keyboard.IsKeyDownOnce(Key.V)) {
-                string? clip = ClipboardManager.ClipboardString;
-                if (clip != null) {
-                    EnterText(clip);
+        }
+
+        public void MoveCaretVertically(int direction) {
+            if (direction == 0 || Text.Length == 0) {
+                return;
+            }
+            int lineIndex = GetLineIndex(Caret);
+            int targetLineIndex = Math.Clamp(lineIndex + Math.Sign(direction), 0, GetLineCount() - 1);
+            int currentLineStart = GetLineStart(Caret);
+            int desiredColumn = m_preferredCaretColumn ?? Caret - currentLineStart;
+            int targetLineStart = GetLineStartByIndex(targetLineIndex);
+            int targetLineEnd = GetLineEnd(targetLineStart);
+            Caret = targetLineStart + Math.Min(desiredColumn, targetLineEnd - targetLineStart);
+            SelectionLength = 0;
+            SelectionStarted = false;
+            m_preferredCaretColumn = desiredColumn;
+        }
+
+        int GetLineCount() {
+            return Text.Count(c => c == '\n') + 1;
+        }
+
+        int GetLineIndex(int index) {
+            int safeIndex = Math.Clamp(index, 0, Text.Length);
+            int lineIndex = 0;
+            for (int i = 0; i < safeIndex; i++) {
+                if (Text[i] == '\n') {
+                    lineIndex++;
                 }
             }
+            return lineIndex;
+        }
+
+        int GetLineStart(int index) {
+            int safeIndex = Math.Clamp(index, 0, Text.Length);
+            if (safeIndex <= 0) {
+                return 0;
+            }
+            int previousNewLine = Text.LastIndexOf('\n', safeIndex - 1);
+            return previousNewLine < 0 ? 0 : previousNewLine + 1;
+        }
+
+        int GetLineStartByIndex(int lineIndex) {
+            int currentLine = 0;
+            for (int i = 0; i < Text.Length; i++) {
+                if (currentLine == lineIndex) {
+                    return i;
+                }
+                if (Text[i] == '\n') {
+                    currentLine++;
+                    if (currentLine == lineIndex) {
+                        return i + 1;
+                    }
+                }
+            }
+            return Text.Length;
+        }
+
+        int GetLineEnd(int index) {
+            int lineStart = GetLineStart(index);
+            int nextNewLine = Text.IndexOf('\n', lineStart);
+            return nextNewLine < 0 ? Text.Length : nextNewLine;
         }
 
         public override void Draw_(DrawContext dc) {
@@ -411,10 +608,16 @@ namespace EBoyTerminal {
         }
 
         float CalculateLineHeight() {
+            if (Font == null) {
+                return 0f;
+            }
             return Font.GlyphHeight * FontScale * Font.Scale + FontSpacing.Y;
         }
 
         float CalculateLineNumberGutterWidth() {
+            if (Font == null) {
+                return 0f;
+            }
             int lineCount = Text.Length == 0 ? 1 : Text.Count(c => c == '\n') + 1;
             int digits = Math.Max(2, lineCount.ToString().Length);
             string sample = new('9', digits);
@@ -433,6 +636,9 @@ namespace EBoyTerminal {
         }
 
         float CalculateTextWidth() {
+            if (Font == null) {
+                return 0f;
+            }
             string text = PasswordMode ? new string('*', Text.Length) : Text;
             string[] lines = text.Replace("\t", new string(' ', IndentWidth)).ReplaceLineEndings("\n").Split('\n');
             float maxWidth = 0f;

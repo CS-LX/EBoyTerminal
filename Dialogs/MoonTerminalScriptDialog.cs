@@ -52,6 +52,7 @@ namespace EBoyTerminal {
             m_scriptText.SwitchTextBoxWhenTabbed = false;
             m_scriptText.IndentAsSpace = true;
             m_scriptText.Text = m_savedText;
+            m_scriptText.ClearUndoHistory();
             m_scriptText.TextChanged += OnScriptTextChanged;
             m_scriptText.HasFocus = true;
             m_component.SetOpenDialog(this);
