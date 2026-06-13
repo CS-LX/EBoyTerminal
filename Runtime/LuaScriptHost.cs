@@ -82,5 +82,12 @@ public sealed class LuaScriptHost {
         m_machine.SetTable(name, members);
     }
 
+    public void RegisterApiTable(
+        string name,
+        IReadOnlyDictionary<string, DynValue> members,
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, DynValue>>? subTables) {
+        m_machine.SetTable(name, members, subTables);
+    }
+
     static Script CreateScript() => new(CoreModules.Preset_SoftSandbox);
 }

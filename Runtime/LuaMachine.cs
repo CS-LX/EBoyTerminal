@@ -55,12 +55,29 @@ public sealed class LuaMachine {
     }
 
     public void SetTable(string name, IReadOnlyDictionary<string, DynValue> members) {
+        SetTable(name, members, null);
+    }
+
+    public void SetTable(
+        string name,
+        IReadOnlyDictionary<string, DynValue> members,
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, DynValue>>? subTables) {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         Dictionary<string, DynValue> memberCopy = new(members);
+        Dictionary<string, IReadOnlyDictionary<string, DynValue>> subTableCopy = subTables != null
+            ? new Dictionary<string, IReadOnlyDictionary<string, DynValue>>(subTables)
+            : [];
         m_globalFactories[name] = script => {
             Table table = new(script);
             foreach ((string memberName, DynValue memberValue) in memberCopy) {
                 table.Set(memberName, memberValue);
+            }
+            foreach ((string subTableName, IReadOnlyDictionary<string, DynValue> subMembers) in subTableCopy) {
+                Table subTable = new(script);
+                foreach ((string memberName, DynValue memberValue) in subMembers) {
+                    subTable.Set(memberName, memberValue);
+                }
+                table.Set(subTableName, DynValue.NewTable(subTable));
             }
             return DynValue.NewTable(table);
         };

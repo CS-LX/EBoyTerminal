@@ -6,7 +6,7 @@ using TemplatesDatabase;
 using EBoyTerminal.Runtime;
 
 namespace EBoyTerminal {
-    public class ComponentMoonTerminal : Component, IUpdateable {
+    public class ComponentMoonTerminal : Component, IUpdateable, ILuaScriptApiProvider {
         public const string ScriptTextKey = "ScriptText";
         public const string MaxOutputLinesKey = "MaxOutputLines";
         public const int DefaultMaxOutputLines = 512;
@@ -137,33 +137,31 @@ namespace EBoyTerminal {
             }
         }
 
-        public void InitializeLuaHost() {
+        public void WireScriptHost() {
             if (m_luaScriptHost == null) {
                 return;
             }
             m_luaScriptHost.Host.OnOutput = AppendOutput;
             m_luaScriptHost.Host.OnError = AppendError;
-            m_luaScriptHost.Host.RegisterApiTable("terminal", new Dictionary<string, DynValue> {
-                ["write"] = SafeTerminalCallback(TerminalWrite),
-                ["print"] = SafeTerminalCallback(TerminalPrint),
-                ["clear"] = SafeTerminalCallback(TerminalClear),
-                ["lines"] = SafeTerminalCallback(TerminalLines)
-            });
         }
 
-        DynValue SafeTerminalCallback(Func<ScriptExecutionContext, CallbackArguments, DynValue> handler) {
-            return DynValue.NewCallback((context, args) => {
-                try {
-                    return handler(context, args);
-                }
-                catch (Exception ex) {
-                    string message = ex is InterpreterException interpreterException
-                        ? interpreterException.DecoratedMessage ?? interpreterException.Message
-                        : ex.Message;
-                    m_luaScriptHost.Host.Machine.ReportRuntimeError(message);
-                    return DynValue.Nil;
-                }
-            });
+        public void ContributeLuaApi(LuaScriptApiBuildContext context) {
+            context.AddMember("write", context.Callback((_, args) => {
+                AppendOutput(args.Count > 0 ? args[0].ToPrintString() : string.Empty);
+                return DynValue.Nil;
+            }));
+            context.AddMember("print", context.Callback((_, args) => {
+                string text = args.Count == 0
+                    ? string.Empty
+                    : string.Join("\t", args.GetArray().Select(static value => value.ToPrintString()));
+                AppendOutput(text);
+                return DynValue.Nil;
+            }));
+            context.AddMember("clear", context.Callback((_, _) => {
+                ClearOutput();
+                return DynValue.Nil;
+            }));
+            context.AddMember("lines", context.Callback((_, _) => DynValue.NewNumber(OutputLines.Count)));
         }
 
         void PushScriptToHost() {
@@ -171,7 +169,7 @@ namespace EBoyTerminal {
                 return;
             }
             m_lastReportedError = null;
-            InitializeLuaHost();
+            WireScriptHost();
             m_luaScriptHost.ReloadFromSource(m_scriptText);
         }
 
@@ -180,28 +178,6 @@ namespace EBoyTerminal {
             if (!string.IsNullOrEmpty(error)) {
                 AppendError(error);
             }
-        }
-
-        DynValue TerminalWrite(ScriptExecutionContext context, CallbackArguments args) {
-            AppendOutput(args.Count > 0 ? args[0].ToPrintString() : string.Empty);
-            return DynValue.Nil;
-        }
-
-        DynValue TerminalPrint(ScriptExecutionContext context, CallbackArguments args) {
-            string text = args.Count == 0
-                ? string.Empty
-                : string.Join("\t", args.GetArray().Select(static value => value.ToPrintString()));
-            AppendOutput(text);
-            return DynValue.Nil;
-        }
-
-        DynValue TerminalClear(ScriptExecutionContext context, CallbackArguments args) {
-            ClearOutput();
-            return DynValue.Nil;
-        }
-
-        DynValue TerminalLines(ScriptExecutionContext context, CallbackArguments args) {
-            return DynValue.NewNumber(m_outputLines.Count);
         }
 
         public bool StartScript() {
