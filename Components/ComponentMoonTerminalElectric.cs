@@ -7,7 +7,7 @@ using EBoyTerminal.Electric;
 using EBoyTerminal.Runtime;
 
 namespace EBoyTerminal {
-    /// <summary>月之终端逻辑电路 IO 缓存与 <c>terminal.electric.*</c> Lua API。</summary>
+    /// <summary>月之终端逻辑电路 IO（CellFace 0–5）与 <c>terminal.electric.*</c> Lua API。</summary>
     public class ComponentMoonTerminalElectric : Component, ILuaScriptApiProvider {
         public const string OutputVoltagesKey = "ElectricOutputVoltages";
 
@@ -18,7 +18,6 @@ namespace EBoyTerminal {
         readonly int[] m_pulseTicksRemaining = new int[6];
         readonly float[] m_pulseReleaseVoltage = new float[6];
 
-        ComponentBlockEntity m_blockEntity = null!;
         ComponentMoonTerminal m_terminal = null!;
         MoonTerminalElectricElement? m_electricElement;
 
@@ -28,7 +27,6 @@ namespace EBoyTerminal {
             m_terminal ?? Entity.FindComponent<ComponentMoonTerminal>(throwOnError: true);
 
         public override void Load(ValuesDictionary valuesDictionary, IdToEntityMap idToEntityMap) {
-            m_blockEntity = Entity.FindComponent<ComponentBlockEntity>(throwOnError: true);
             m_terminal = Entity.FindComponent<ComponentMoonTerminal>(throwOnError: true);
             LoadOutputVoltages(valuesDictionary.GetValue(OutputVoltagesKey, string.Empty));
         }
@@ -75,7 +73,7 @@ namespace EBoyTerminal {
             ClearInputReadings();
             ClearPulses();
             ClearOutputs();
-            m_electricElement?.QueueSimulation();
+            NotifyCircuitChanged();
         }
 
         public void AdvancePulses() {
@@ -99,26 +97,36 @@ namespace EBoyTerminal {
                 changed = true;
             }
             if (changed) {
-                m_electricElement?.QueueSimulation();
+                NotifyCircuitChanged();
             }
         }
 
-        public bool TryReadPort(string portName, out float voltage, out string? error) {
+        public bool TryReadInput(int face, out float voltage) {
             voltage = 0f;
-            error = null;
-            if (!TryResolvePort(portName, out int face, out error)) {
+            if (face is < 0 or > 5) {
                 return false;
             }
-            if (!IsIoEnabled) {
-                return true;
+            if (IsIoEnabled) {
+                voltage = m_inputVoltages[face];
             }
-            voltage = m_inputVoltages[face];
             return true;
         }
 
-        public bool TryWritePort(string portName, float voltage, out string? error) {
+        public bool TryReadOutput(int face, out float voltage) {
+            voltage = 0f;
+            if (face is < 0 or > 5) {
+                return false;
+            }
+            if (IsIoEnabled) {
+                voltage = m_outputVoltages[face];
+            }
+            return true;
+        }
+
+        public bool TryWriteFace(int face, float voltage, out string? error) {
             error = null;
-            if (!TryResolvePort(portName, out int face, out error)) {
+            if (face is < 0 or > 5) {
+                error = "face must be 0-5";
                 return false;
             }
             if (!IsIoEnabled) {
@@ -131,17 +139,18 @@ namespace EBoyTerminal {
                 return true;
             }
             m_outputVoltages[face] = voltage;
-            m_electricElement?.QueueSimulation();
+            NotifyCircuitChanged();
             return true;
         }
 
-        public bool TryPulsePort(string portName, float voltage, int ticks, out string? error) {
+        public bool TryPulseFace(int face, float voltage, int ticks, out string? error) {
             error = null;
-            if (ticks < 1) {
-                error = "pulse ticks must be >= 1";
+            if (face is < 0 or > 5) {
+                error = "face must be 0-5";
                 return false;
             }
-            if (!TryResolvePort(portName, out int face, out error)) {
+            if (ticks < 1) {
+                error = "pulse ticks must be >= 1";
                 return false;
             }
             if (!IsIoEnabled) {
@@ -152,97 +161,107 @@ namespace EBoyTerminal {
             m_pulseReleaseVoltage[face] = 0f;
             m_pulseTicksRemaining[face] = ticks;
             if (Math.Abs(m_outputVoltages[face] - voltage) <= VoltageEpsilon) {
-                m_electricElement?.QueueSimulation();
+                NotifyCircuitChanged();
                 return true;
             }
             m_outputVoltages[face] = voltage;
-            m_electricElement?.QueueSimulation();
+            NotifyCircuitChanged();
             return true;
         }
 
         public void ContributeLuaApi(LuaScriptApiBuildContext context) {
             context.AddSubTable("electric", new Dictionary<string, DynValue> {
-                ["ports"] = context.Callback((executionContext, _) => BuildPortNameTable(executionContext)),
+                ["faces"] = context.Callback((executionContext, _) => BuildFaceTable(executionContext)),
                 ["read"] = context.Callback((_, args) => {
-                    if (args.Count < 1) {
-                        throw new ScriptRuntimeException("electric.read(port) requires a port name");
+                    if (!TryParseFaceArg(args, 0, out int face, out string? error)) {
+                        throw new ScriptRuntimeException(error ?? "invalid face");
                     }
-                    if (!TryReadPort(args[0].CastToString(), out float voltage, out string? error)) {
-                        throw new ScriptRuntimeException(error ?? "invalid port");
+                    if (!TryReadInput(face, out float voltage)) {
+                        throw new ScriptRuntimeException("invalid face");
+                    }
+                    return DynValue.NewNumber(voltage);
+                }),
+                ["output"] = context.Callback((_, args) => {
+                    if (!TryParseFaceArg(args, 0, out int face, out string? error)) {
+                        throw new ScriptRuntimeException(error ?? "invalid face");
+                    }
+                    if (!TryReadOutput(face, out float voltage)) {
+                        throw new ScriptRuntimeException("invalid face");
                     }
                     return DynValue.NewNumber(voltage);
                 }),
                 ["isHigh"] = context.Callback((_, args) => {
-                    if (args.Count < 1) {
-                        throw new ScriptRuntimeException("electric.isHigh(port) requires a port name");
+                    if (!TryParseFaceArg(args, 0, out int face, out string? error)) {
+                        throw new ScriptRuntimeException(error ?? "invalid face");
                     }
-                    if (!TryReadPort(args[0].CastToString(), out float voltage, out string? error)) {
-                        throw new ScriptRuntimeException(error ?? "invalid port");
+                    if (!TryReadInput(face, out float voltage)) {
+                        throw new ScriptRuntimeException("invalid face");
                     }
                     return DynValue.NewBoolean(ElectricElement.IsSignalHigh(voltage));
                 }),
                 ["level"] = context.Callback((_, args) => {
-                    if (args.Count < 1) {
-                        throw new ScriptRuntimeException("electric.level(port) requires a port name");
+                    if (!TryParseFaceArg(args, 0, out int face, out string? error)) {
+                        throw new ScriptRuntimeException(error ?? "invalid face");
                     }
-                    if (!TryReadPort(args[0].CastToString(), out float voltage, out string? error)) {
-                        throw new ScriptRuntimeException(error ?? "invalid port");
+                    if (!TryReadInput(face, out float voltage)) {
+                        throw new ScriptRuntimeException("invalid face");
                     }
                     return DynValue.NewNumber((int)MathF.Round(voltage * 15f));
                 }),
                 ["write"] = context.Callback((_, args) => {
                     if (args.Count < 2) {
-                        throw new ScriptRuntimeException("electric.write(port, value) requires port and value");
+                        throw new ScriptRuntimeException("electric.write(face, value) requires face and value");
                     }
-                    if (!TryWritePort(args[0].CastToString(), (float)args[1].Number, out string? error)) {
-                        throw new ScriptRuntimeException(error ?? "invalid port");
+                    if (!TryParseFaceArg(args, 0, out int face, out string? error)) {
+                        throw new ScriptRuntimeException(error ?? "invalid face");
+                    }
+                    if (!TryWriteFace(face, (float)args[1].Number, out error)) {
+                        throw new ScriptRuntimeException(error ?? "invalid face");
                     }
                     return DynValue.Nil;
                 }),
                 ["pulse"] = context.Callback((_, args) => {
                     if (args.Count < 2) {
-                        throw new ScriptRuntimeException("electric.pulse(port, ticks[, value]) requires port and ticks");
+                        throw new ScriptRuntimeException("electric.pulse(face, ticks[, value]) requires face and ticks");
+                    }
+                    if (!TryParseFaceArg(args, 0, out int face, out string? error)) {
+                        throw new ScriptRuntimeException(error ?? "invalid face");
                     }
                     float voltage = args.Count >= 3 ? (float)args[2].Number : 1f;
-                    if (!TryPulsePort(args[0].CastToString(), voltage, (int)args[1].Number, out string? error)) {
-                        throw new ScriptRuntimeException(error ?? "invalid port");
+                    if (!TryPulseFace(face, voltage, (int)args[1].Number, out error)) {
+                        throw new ScriptRuntimeException(error ?? "invalid face");
                     }
                     return DynValue.Nil;
                 }),
-                ["isInput"] = context.Callback((_, args) => DynValue.NewBoolean(IsPortName(args, 0))),
-                ["isOutput"] = context.Callback((_, args) => DynValue.NewBoolean(IsPortName(args, 0))),
                 ["enabled"] = context.Callback((_, _) => DynValue.NewBoolean(IsIoEnabled)),
             });
         }
 
-        bool IsPortName(CallbackArguments args, int index) {
-            if (args.Count <= index) {
-                return false;
-            }
-            return TryResolvePort(args[index].CastToString(), out _, out _);
-        }
-
-        DynValue BuildPortNameTable(ScriptExecutionContext executionContext) {
-            Table table = new(executionContext.OwnerScript);
-            for (int i = 0; i < MoonTerminalElectricPorts.PortNames.Count; i++) {
-                table.Set(i + 1, DynValue.NewString(MoonTerminalElectricPorts.PortNames[i]));
-            }
-            return DynValue.NewTable(table);
-        }
-
-        int GetBlockData() {
-            ComponentBlockEntity? blockEntity = m_blockEntity ?? Entity.FindComponent<ComponentBlockEntity>(throwOnError: false);
-            return blockEntity != null ? Terrain.ExtractData(blockEntity.BlockValue) : 0;
-        }
-
-        bool TryResolvePort(string? portName, out int face, out string? error) {
+        static bool TryParseFaceArg(CallbackArguments args, int index, out int face, out string? error) {
             face = -1;
             error = null;
-            if (!MoonTerminalElectricPorts.TryResolveFace(GetBlockData(), portName ?? string.Empty, out face)) {
-                error = $"unknown port '{portName}'";
+            if (args.Count <= index) {
+                error = "face argument required";
+                return false;
+            }
+            if (args[index].Type != DataType.Number) {
+                error = "face must be a number 0-5";
+                return false;
+            }
+            face = (int)args[index].Number;
+            if (face is < 0 or > 5) {
+                error = "face must be 0-5";
                 return false;
             }
             return true;
+        }
+
+        static DynValue BuildFaceTable(ScriptExecutionContext executionContext) {
+            Table table = new(executionContext.OwnerScript);
+            for (int face = 0; face < 6; face++) {
+                table.Set(face + 1, DynValue.NewNumber(face));
+            }
+            return DynValue.NewTable(table);
         }
 
         bool ClearOutputs() {
@@ -303,5 +322,13 @@ namespace EBoyTerminal {
         }
 
         static float ClampVoltage(float voltage) => Math.Clamp(voltage, 0f, 1f);
+
+        void NotifyCircuitChanged() {
+            if (m_electricElement == null) {
+                return;
+            }
+            m_electricElement.QueueSimulation();
+            m_electricElement.QueueConnectedNeighbors();
+        }
     }
 }

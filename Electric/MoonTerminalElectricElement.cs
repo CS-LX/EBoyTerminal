@@ -9,10 +9,12 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
 
     readonly SubsystemBlockEntities m_subsystemBlockEntities;
 
+    readonly Dictionary<int, int> m_connectorFaceToCellFace = new();
+
     ComponentMoonTerminalElectric? m_component;
 
-    public MoonTerminalElectricElement(SubsystemElectricity subsystemElectricity, int x, int y, int z, int blockData)
-        : base(subsystemElectricity, BuildCellFaces(x, y, z, blockData)) {
+    public MoonTerminalElectricElement(SubsystemElectricity subsystemElectricity, int x, int y, int z)
+        : base(subsystemElectricity, BuildCellFaces(x, y, z)) {
         m_point = new Point3(x, y, z);
         m_subsystemBlockEntities = subsystemElectricity.Project.FindSubsystem<SubsystemBlockEntities>(throwOnError: true);
     }
@@ -21,9 +23,34 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
         SubsystemElectricity.QueueElectricElementForSimulation(this, SubsystemElectricity.CircuitStep + 1);
     }
 
-    public override float GetOutputVoltage(int face) {
+    public void QueueConnectedNeighbors() {
+        SubsystemElectricity.QueueElectricElementConnectionsForSimulation(this, SubsystemElectricity.CircuitStep + 1);
+    }
+
+    public override void OnAdded() {
+        base.OnAdded();
+        RebuildConnectorMap();
+    }
+
+    public override void OnConnectionsChanged() {
+        base.OnConnectionsChanged();
+        RebuildConnectorMap();
+    }
+
+    public override float GetOutputVoltage(int connectorFace) {
         EnsureComponent();
-        return m_component?.GetOutputVoltage(face) ?? 0f;
+        if (m_component == null) {
+            return 0f;
+        }
+        if (m_connectorFaceToCellFace.TryGetValue(connectorFace, out int cellFace)) {
+            return m_component.GetOutputVoltage(cellFace);
+        }
+        foreach (ElectricConnection connection in Connections) {
+            if (connection.ConnectorFace == connectorFace) {
+                return m_component.GetOutputVoltage(connection.CellFace.Face);
+            }
+        }
+        return 0f;
     }
 
     public override bool Simulate() {
@@ -55,6 +82,13 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
         return changed;
     }
 
+    void RebuildConnectorMap() {
+        m_connectorFaceToCellFace.Clear();
+        foreach (ElectricConnection connection in Connections) {
+            m_connectorFaceToCellFace[connection.ConnectorFace] = connection.CellFace.Face;
+        }
+    }
+
     void EnsureComponent() {
         if (m_component != null) {
             return;
@@ -64,12 +98,9 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
         m_component?.BindElectricElement(this);
     }
 
-    static IEnumerable<CellFace> BuildCellFaces(int x, int y, int z, int blockData) {
-        int facing = MoonTerminalElectricPorts.GetFacing(blockData);
+    static IEnumerable<CellFace> BuildCellFaces(int x, int y, int z) {
         for (int face = 0; face < 6; face++) {
-            if (face != facing) {
-                yield return new CellFace(x, y, z, face);
-            }
+            yield return new CellFace(x, y, z, face);
         }
     }
 }

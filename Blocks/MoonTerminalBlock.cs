@@ -9,7 +9,7 @@ using EBoyTerminal.VoltNet;
 namespace EBoyTerminal {
     /// <summary>
     /// 月之终端方块；材质来自 <see cref="EBoyTerminalLoader.BlockTexture"/>。
-    /// 槽位：顶 0、侧/背 1、底 2、正面 3。
+    /// 槽位：顶 0、侧/背 1、底 2、正面 3。电路面索引见 SC CellFace（0–5）。
     /// </summary>
     public class MoonTerminalBlock : CubeBlock, IVoltDevice, IElectricElementBlock {
         public static int Index = 550;
@@ -27,6 +27,9 @@ namespace EBoyTerminal {
 
         public override void GenerateTerrainVertices(BlockGeometryGenerator generator, TerrainGeometry geometry, int value, int x, int y, int z) {
             generator.GenerateCubeVertices(this, value, x, y, z, Color.White, geometry.GetGeometry(EBoyTerminalLoader.BlockTexture).OpaqueSubsetsByFace);
+            for (int face = 0; face < 6; face++) {
+                generator.GenerateWireVertices(value, x, y, z, face, 0.35f, Vector2.Zero, geometry.SubsetOpaque);
+            }
         }
 
         public override void DrawBlock(PrimitivesRenderer3D primitivesRenderer, int value, Color color, float size, ref Matrix matrix, DrawBlockEnvironmentData environmentData) {
@@ -40,7 +43,7 @@ namespace EBoyTerminal {
             if (face == 5) {
                 return SlotBottom;
             }
-            int facing = Terrain.ExtractData(value) & 3;
+            int facing = GetFacing(value);
             if (face == facing) {
                 return SlotFront;
             }
@@ -61,7 +64,7 @@ namespace EBoyTerminal {
         public float GetStandardUL(int value) => 1;
 
         public ElectricElement CreateElectricElement(SubsystemElectricity subsystemElectricity, int value, int x, int y, int z)
-            => new MoonTerminalElectricElement(subsystemElectricity, x, y, z, Terrain.ExtractData(value));
+            => new MoonTerminalElectricElement(subsystemElectricity, x, y, z);
 
         public ElectricConnectorType? GetConnectorType(
             SubsystemTerrain terrain,
@@ -70,7 +73,7 @@ namespace EBoyTerminal {
             int connectorFace,
             int x,
             int y,
-            int z) => MoonTerminalElectricPorts.GetConnectorType(Terrain.ExtractData(value), face);
+            int z) => face is >= 0 and <= 5 ? ElectricConnectorType.InputOutput : null;
 
         public int GetConnectionMask(int value) => int.MaxValue;
 

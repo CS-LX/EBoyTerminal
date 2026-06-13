@@ -1,4 +1,4 @@
--- EBoyTerminal API 冒烟测试（含 electric）
+-- EBoyTerminal API 冒烟测试（含 electric，面索引 0-5 = SC CellFace）
 -- 连 CRT、供电后粘贴运行；末尾 SMOKE OK 即通过。
 
 local pass, fail, skip = 0, 0, 0
@@ -23,25 +23,23 @@ terminal.print("=== EBoyTerminal Smoke Test ===")
 
 if terminal.electric.enabled() then ok("electric.enabled powered") else bad("electric.enabled powered") end
 
-local ports = terminal.electric.ports()
-if type(ports) == "table" and #ports == 5 then ok("electric.ports()") else bad("electric.ports()", "#=" .. tostring(#ports)) end
+local faces = terminal.electric.faces()
+if type(faces) == "table" and #faces == 6 and faces[1] == 0 and faces[6] == 5 then
+  ok("electric.faces()")
+else
+  bad("electric.faces()", "count=" .. tostring(#faces))
+end
 
-local wrote, writeErr = pcall(function() terminal.electric.write("back", 1) end)
+local wrote, writeErr = pcall(function() terminal.electric.write(0, 1) end)
 if wrote then
-  ok("electric.write(back,1)")
-  terminal.electric.write("back", 0)
+  ok("electric.write(0,1)")
+  terminal.electric.write(0, 0)
 else
-  bad("electric.write(back,1)", writeErr)
+  bad("electric.write(0,1)", writeErr)
 end
 
-if terminal.electric.isInput("back") and terminal.electric.isOutput("back") then
-  ok("electric port capabilities")
-else
-  bad("electric port capabilities")
-end
-
-local pulsed, pulseErr = pcall(function() terminal.electric.pulse("back", 2) end)
-if pulsed then ok("electric.pulse(back,2)") else bad("electric.pulse(back,2)", pulseErr) end
+local pulsed, pulseErr = pcall(function() terminal.electric.pulse(0, 2) end)
+if pulsed then ok("electric.pulse(0,2)") else bad("electric.pulse(0,2)", pulseErr) end
 
 terminal.print(string.format("RESULT: %d pass, %d fail, %d skip", pass, fail, skip))
 if fail == 0 then terminal.print("SMOKE OK") else terminal.print("SMOKE FAILED") end
