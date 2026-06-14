@@ -22,13 +22,13 @@ end
 terminal.clear()
 terminal.print("=== EBoyTerminal Smoke Test ===")
 
-if terminal.electric.enabled() then ok("electric.enabled powered") else bad("electric.enabled powered") end
+if terminal.electric.isEnabled() then ok("electric.isEnabled powered") else bad("electric.isEnabled powered") end
 
-local faces = terminal.electric.faces()
+local faces = terminal.electric.listFaces()
 if type(faces) == "table" and #faces == 6 and faces[1] == 0 and faces[6] == 5 then
-  ok("electric.faces()")
+  ok("electric.listFaces()")
 else
-  bad("electric.faces()", "count=" .. tostring(#faces))
+  bad("electric.listFaces()", "count=" .. tostring(#faces))
 end
 
 local wrote, writeErr = pcall(function() terminal.electric.write(0, 1) end)

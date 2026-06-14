@@ -162,7 +162,8 @@ namespace EBoyTerminal {
                 ClearOutput();
                 return DynValue.Nil;
             }));
-            context.AddMember("lines", context.Callback((_, _) => DynValue.NewNumber(OutputLines.Count)));
+            context.AddMember("countLines", context.Callback((_, _) => DynValue.NewNumber(OutputLines.Count)));
+            context.AddMember("direction", DynValue.NewNumber(MoonTerminalBlock.GetFacing(m_subsystemVoltNet.m_subsystemTerrain.Terrain.GetCellValue(m_blockEntity.Coordinates))));
         }
 
         void PushScriptToHost() {

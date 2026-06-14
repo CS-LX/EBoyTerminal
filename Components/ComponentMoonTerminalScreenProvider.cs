@@ -37,9 +37,9 @@ namespace EBoyTerminal {
             TerminalScreenResolver resolver = new(terminal, context.Project);
             context.AddSubTable("screen", new Dictionary<string, DynValue> {
                 ["isLinked"] = context.Callback((_, _) => DynValue.NewBoolean(resolver.GetSnapshot().IsLinked)),
-                ["rows"] = context.Callback((_, _) => DynValue.NewNumber(GetMetric(resolver, static snapshot => snapshot.Rows))),
-                ["columns"] = context.Callback((_, _) => DynValue.NewNumber(GetMetric(resolver, static snapshot => snapshot.Columns))),
-                ["position"] = context.Callback((executionContext, _) =>
+                ["countRows"] = context.Callback((_, _) => DynValue.NewNumber(GetMetric(resolver, static snapshot => snapshot.Rows))),
+                ["countColumns"] = context.Callback((_, _) => DynValue.NewNumber(GetMetric(resolver, static snapshot => snapshot.Columns))),
+                ["readPosition"] = context.Callback((executionContext, _) =>
                     ToVectorTable(executionContext, resolver.GetSnapshot().Position)),
             });
         }

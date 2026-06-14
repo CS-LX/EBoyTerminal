@@ -77,7 +77,7 @@ namespace EBoyTerminal {
 
         public int GetConnectionMask(int value) => int.MaxValue;
 
-        static int GetFacing(int value) => Terrain.ExtractData(value) & 3;
+        public static int GetFacing(int value) => Terrain.ExtractData(value) & 3;
 
         public override BlockPlacementData GetPlacementValue(SubsystemTerrain subsystemTerrain,
             ComponentMiner componentMiner,

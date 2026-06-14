@@ -174,8 +174,8 @@ namespace EBoyTerminal {
 
         public void ContributeLuaApi(LuaScriptApiBuildContext context) {
             context.AddSubTable("electric", new Dictionary<string, DynValue> {
-                ["faces"] = context.Callback((executionContext, _) => BuildFaceTable(executionContext)),
-                ["read"] = context.Callback((_, args) => {
+                ["listFaces"] = context.Callback((executionContext, _) => BuildFaceTable(executionContext)),
+                ["readInput"] = context.Callback((_, args) => {
                     if (!TryParseFaceArg(args, 0, out int face, out string? error)) {
                         throw new ScriptRuntimeException(error ?? "invalid face");
                     }
@@ -184,7 +184,7 @@ namespace EBoyTerminal {
                     }
                     return DynValue.NewNumber(voltage);
                 }),
-                ["output"] = context.Callback((_, args) => {
+                ["readOutput"] = context.Callback((_, args) => {
                     if (!TryParseFaceArg(args, 0, out int face, out string? error)) {
                         throw new ScriptRuntimeException(error ?? "invalid face");
                     }
@@ -202,7 +202,7 @@ namespace EBoyTerminal {
                     }
                     return DynValue.NewBoolean(ElectricElement.IsSignalHigh(voltage));
                 }),
-                ["level"] = context.Callback((_, args) => {
+                ["readLevel"] = context.Callback((_, args) => {
                     if (!TryParseFaceArg(args, 0, out int face, out string? error)) {
                         throw new ScriptRuntimeException(error ?? "invalid face");
                     }
@@ -236,7 +236,7 @@ namespace EBoyTerminal {
                     }
                     return DynValue.Nil;
                 }),
-                ["enabled"] = context.Callback((_, _) => DynValue.NewBoolean(IsIoEnabled)),
+                ["isEnabled"] = context.Callback((_, _) => DynValue.NewBoolean(IsIoEnabled)),
             });
         }
 
