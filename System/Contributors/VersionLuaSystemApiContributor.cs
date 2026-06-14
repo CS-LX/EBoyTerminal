@@ -9,9 +9,9 @@ public sealed class VersionLuaSystemApiContributor : ILuaSystemApiContributor {
     public string ModuleName => "sys.version";
 
     public void Contribute(LuaScriptApiBuildContext context, IDictionary<string, DynValue> members) {
-        AddReader(members, "readGameVersion", context, static (_, _) => DynValue.NewString(ModsManager.ShortGameVersion));
-        AddReader(members, "readApiVersion", context, static (_, _) => DynValue.NewString(ModsManager.APIVersionString));
-        AddReader(members, "readTerminalModVersion", context, static (_, _) => DynValue.NewString(ResolveTerminalModVersion()));
+        AddReader(members, "getGameVersion", context, static (_, _) => DynValue.NewString(ModsManager.ShortGameVersion));
+        AddReader(members, "getApiVersion", context, static (_, _) => DynValue.NewString(ModsManager.APIVersionString));
+        AddReader(members, "getTerminalModVersion", context, static (_, _) => DynValue.NewString(ResolveTerminalModVersion()));
     }
 
     static void AddReader(

@@ -12,16 +12,16 @@ public sealed class WorldLuaSystemApiContributor : ILuaSystemApiContributor {
     public void Contribute(LuaScriptApiBuildContext context, IDictionary<string, DynValue> members) {
         Project project = context.Project;
 
-        AddReader(members, "readWorldName", context, (_, _) => DynValue.NewString(ReadWorldName(project)));
-        AddReader(members, "readWorldSeed", context, (_, _) => DynValue.NewNumber(ReadWorldSeed(project)));
-        AddReader(members, "readGameMode", context, (_, _) => DynValue.NewString(ReadGameMode(project)));
-        AddReader(members, "readElapsedSeconds", context, (_, _) => DynValue.NewNumber(ReadElapsedSeconds(project)));
-        AddReader(members, "readDay", context, (_, _) => DynValue.NewNumber(ReadDay(project)));
-        AddReader(members, "readTimeOfDay", context, (_, _) => DynValue.NewNumber(ReadTimeOfDay(project)));
-        AddReader(members, "readSeason", context, (_, _) => DynValue.NewString(ReadSeason(project)));
-        AddReader(members, "readIsPrecipitating", context, (_, _) => DynValue.NewBoolean(ReadIsPrecipitating(project)));
-        AddReader(members, "readPrecipitationIntensity", context, (_, _) => DynValue.NewNumber(ReadPrecipitationIntensity(project)));
-        AddReader(members, "readTickSeconds", context, (_, _) => DynValue.NewNumber(ReadTickSeconds(project)));
+        AddReader(members, "getWorldName", context, (_, _) => DynValue.NewString(ReadWorldName(project)));
+        AddReader(members, "getWorldSeed", context, (_, _) => DynValue.NewNumber(ReadWorldSeed(project)));
+        AddReader(members, "getGameMode", context, (_, _) => DynValue.NewString(ReadGameMode(project)));
+        AddReader(members, "getElapsedSeconds", context, (_, _) => DynValue.NewNumber(ReadElapsedSeconds(project)));
+        AddReader(members, "getDay", context, (_, _) => DynValue.NewNumber(ReadDay(project)));
+        AddReader(members, "getTimeOfDay", context, (_, _) => DynValue.NewNumber(ReadTimeOfDay(project)));
+        AddReader(members, "getSeason", context, (_, _) => DynValue.NewString(ReadSeason(project)));
+        AddReader(members, "getIsPrecipitating", context, (_, _) => DynValue.NewBoolean(ReadIsPrecipitating(project)));
+        AddReader(members, "getPrecipitationIntensity", context, (_, _) => DynValue.NewNumber(ReadPrecipitationIntensity(project)));
+        AddReader(members, "getTickSeconds", context, (_, _) => DynValue.NewNumber(ReadTickSeconds(project)));
     }
 
     static void AddReader(
