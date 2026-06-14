@@ -5,19 +5,23 @@ using GameEntitySystem;
 namespace EBoyTerminal.Electric;
 
 /// <summary>
-/// 月之终端电路元素。Lua/API 与贴图/接线柱共用 SC CellFace；
-/// 电路 <see cref="ElectricConnection.CellFace"/>.Face 与接线面相差 <see cref="CellFace.OppositeFace"/>，此处统一转换。
+/// 月之终端电路元素。与宿主门电路一致：单安装面 + 旋转，<see cref="ElectricConnectorDirection"/> 相对接线。
 /// </summary>
 public sealed class MoonTerminalElectricElement : ElectricElement {
+    const int DirectionCount = 5;
+
     readonly Point3 m_point;
 
     readonly SubsystemBlockEntities m_subsystemBlockEntities;
 
     ComponentMoonTerminalElectric? m_component;
 
-    public MoonTerminalElectricElement(SubsystemElectricity subsystemElectricity, int x, int y, int z)
-        : base(subsystemElectricity, BuildCellFaces(x, y, z)) {
-        m_point = new Point3(x, y, z);
+    int m_direction;
+
+    public MoonTerminalElectricElement(SubsystemElectricity subsystemElectricity, CellFace cellFace, int direction)
+        : base(subsystemElectricity, cellFace) {
+        m_point = cellFace.Point;
+        m_direction = direction;
         m_subsystemBlockEntities = subsystemElectricity.Project.FindSubsystem<SubsystemBlockEntities>(throwOnError: true);
     }
 
@@ -49,12 +53,11 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
         if (m_component == null) {
             return 0f;
         }
-        foreach (ElectricConnection connection in Connections) {
-            if (connection.ConnectorFace == connectorFace) {
-                return m_component.GetOutputVoltage(ToApiFace(connection.CellFace.Face));
-            }
+        ElectricConnectorDirection? direction = SubsystemElectricity.GetConnectorDirection(4, m_direction, connectorFace);
+        if (!direction.HasValue) {
+            return 0f;
         }
-        return 0f;
+        return m_component.GetOutputVoltage(direction.Value);
     }
 
     public override bool Simulate() {
@@ -66,18 +69,28 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
             return m_component.ClearInputReadings();
         }
         bool changed = false;
-        Span<float> inputVoltages = stackalloc float[6];
+        Span<float> inputVoltages = stackalloc float[DirectionCount];
+        int rotation = m_direction;
+        int mountingFace = CellFaces[0].Face;
         foreach (ElectricConnection connection in Connections) {
             if (!CanReadInputFromNeighbor(connection.ConnectorType, connection.NeighborConnectorType)) {
                 continue;
             }
-            int apiFace = ToApiFace(connection.CellFace.Face);
-            inputVoltages[apiFace] = Math.Max(
-                inputVoltages[apiFace],
+            ElectricConnectorDirection? direction = SubsystemElectricity.GetConnectorDirection(
+                mountingFace,
+                rotation,
+                connection.ConnectorFace
+            );
+            if (!direction.HasValue) {
+                continue;
+            }
+            int index = (int)direction.Value;
+            inputVoltages[index] = Math.Max(
+                inputVoltages[index],
                 connection.NeighborElectricElement.GetOutputVoltage(connection.NeighborConnectorFace));
         }
-        for (int apiFace = 0; apiFace < 6; apiFace++) {
-            changed |= m_component.SetInputReading(apiFace, inputVoltages[apiFace]);
+        for (int index = 0; index < DirectionCount; index++) {
+            changed |= m_component.SetInputReading((ElectricConnectorDirection)index, inputVoltages[index]);
         }
         changed |= m_component.AdvancePulses(SubsystemElectricity.CircuitStep);
         return changed;
@@ -92,16 +105,9 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
         m_component?.BindElectricElement(this);
     }
 
-    static IEnumerable<CellFace> BuildCellFaces(int x, int y, int z) {
-        for (int face = 0; face < 6; face++) {
-            yield return new CellFace(x, y, z, face);
-        }
-    }
-
-    /// <summary>电路 connection.CellFace → Lua/贴图 CellFace（六面均为 OppositeFace）。</summary>
-    internal static int ToApiFace(int connectionCellFace) => CellFace.OppositeFace(connectionCellFace);
-
     internal static bool CanReadInputFromNeighbor(ElectricConnectorType connectorType, ElectricConnectorType neighborConnectorType)
         => connectorType != ElectricConnectorType.Output
             && neighborConnectorType != ElectricConnectorType.Input;
+
+    public override bool OnInteract(TerrainRaycastResult raycastResult, ComponentMiner componentMiner) => false;
 }

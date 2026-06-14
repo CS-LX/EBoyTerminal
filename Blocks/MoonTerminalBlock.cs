@@ -8,8 +8,7 @@ using EBoyTerminal.VoltNet;
 
 namespace EBoyTerminal {
     /// <summary>
-    /// 月之终端方块；材质来自 <see cref="EBoyTerminalLoader.BlockTexture"/>。
-    /// 槽位：顶 0、侧/背 1、底 2、正面 3。电路 face 0–5 为 SC CellFace（见原版 CellFace.m_faceToVector3）。
+    /// 月之终端方块。正面（<see cref="GetFacing"/>）为屏幕无接线；其余五向为宿主 <see cref="ElectricConnectorDirection"/> 相对 IO。
     /// </summary>
     public class MoonTerminalBlock : CubeBlock, IVoltDevice, IElectricElementBlock {
         public static int Index = 550;
@@ -28,6 +27,9 @@ namespace EBoyTerminal {
         public override void GenerateTerrainVertices(BlockGeometryGenerator generator, TerrainGeometry geometry, int value, int x, int y, int z) {
             generator.GenerateCubeVertices(this, value, x, y, z, Color.White, geometry.GetGeometry(EBoyTerminalLoader.BlockTexture).OpaqueSubsetsByFace);
             for (int face = 0; face < 6; face++) {
+                if (face == 4) {
+                    continue;
+                }
                 generator.GenerateWireVertices(value, x, y, z, face, 0.35f, Vector2.Zero, geometry.SubsetOpaque);
             }
         }
@@ -63,21 +65,17 @@ namespace EBoyTerminal {
 
         public float GetStandardUL(int value) => 1;
 
-        public ElectricElement CreateElectricElement(SubsystemElectricity subsystemElectricity, int value, int x, int y, int z)
-            => new MoonTerminalElectricElement(subsystemElectricity, x, y, z);
+        public ElectricElement CreateElectricElement(SubsystemElectricity subsystemElectricity, int value, int x, int y, int z) {
+            return new MoonTerminalElectricElement(subsystemElectricity, new CellFace(x, y, z, 4), GetDirection(value));
+        }
 
-        public ElectricConnectorType? GetConnectorType(
-            SubsystemTerrain terrain,
-            int value,
-            int face,
-            int connectorFace,
-            int x,
-            int y,
-            int z) => face is >= 0 and <= 5 ? ElectricConnectorType.InputOutput : null;
+        public ElectricConnectorType? GetConnectorType(SubsystemTerrain terrain, int value, int face, int connectorFace, int x, int y, int z) => ElectricConnectorType.InputOutput;
 
         public int GetConnectionMask(int value) => int.MaxValue;
 
         public static int GetFacing(int value) => Terrain.ExtractData(value) & 3;
+
+        public static int GetDirection(int value) => CellFace.OppositeFace(GetFacing(value));
 
         public override BlockPlacementData GetPlacementValue(SubsystemTerrain subsystemTerrain,
             ComponentMiner componentMiner,

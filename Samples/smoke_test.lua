@@ -1,6 +1,8 @@
 -- EBoyTerminal API 冒烟测试（含 electric）
--- face 0-5 = 终端自身 CellFace（非邻块面）：0 +Z, 1 +X, 2 -Z, 3 -X, 4 +Y顶, 5 -Y底
+-- ElectricConnectorDirection：0 Top, 1 Left, 2 Bottom, 3 Right, 4 In
 -- 连 CRT、供电后粘贴运行；末尾 SMOKE OK 即通过。
+
+local ECD = require("lib.terminal.electric_connector_direction")
 
 local pass, fail, skip = 0, 0, 0
 
@@ -31,23 +33,23 @@ else
   bad("sys.version.readGameVersion/readApiVersion")
 end
 
-local faces = terminal.electric.listFaces()
-if type(faces) == "table" and #faces == 6 and faces[1] == 0 and faces[6] == 5 then
-  ok("electric.listFaces()")
+local connectors = terminal.electric.listDirections()
+if type(connectors) == "table" and #connectors == 5 and connectors[1] == ECD.Top and connectors[5] == ECD.In then
+  ok("electric.listDirections()")
 else
-  bad("electric.listFaces()", "count=" .. tostring(#faces))
+  bad("electric.listDirections()", "count=" .. tostring(#connectors))
 end
 
-local wrote, writeErr = pcall(function() terminal.electric.write(0, 1) end)
+local wrote, writeErr = pcall(function() terminal.electric.write(ECD.Top, 1) end)
 if wrote then
-  ok("electric.write(0,1)")
-  terminal.electric.write(0, 0)
+  ok("electric.write(Top,1)")
+  terminal.electric.write(ECD.Top, 0)
 else
-  bad("electric.write(0,1)", writeErr)
+  bad("electric.write(Top,1)", writeErr)
 end
 
-local pulsed, pulseErr = pcall(function() terminal.electric.pulse(0, 2) end)
-if pulsed then ok("electric.pulse(0,2)") else bad("electric.pulse(0,2)", pulseErr) end
+local pulsed, pulseErr = pcall(function() terminal.electric.pulse("top", 2) end)
+if pulsed then ok("electric.pulse('top',2)") else bad("electric.pulse('top',2)", pulseErr) end
 
 terminal.print(string.format("RESULT: %d pass, %d fail, %d skip", pass, fail, skip))
 if fail == 0 then terminal.print("SMOKE OK") else terminal.print("SMOKE FAILED") end

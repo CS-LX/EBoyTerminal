@@ -1,11 +1,18 @@
---- 电路 IO 高层封装，基于 terminal.electric（face 0–5）。
-local face = require("lib.terminal.face")
+--- 电路 IO 封装；接线侧一律使用宿主 ElectricConnectorDirection。
+local electricConnectorDirection = require("lib.terminal.electric_connector_direction")
 local util = require("lib.util")
 
 local M = {}
 
 local function api()
   return terminal.electric
+end
+
+local function resolveConnector(label)
+  if type(label) == "string" then
+    return electricConnectorDirection.parse(label)
+  end
+  return electricConnectorDirection.assertValid(label)
 end
 
 function M.isReady()
@@ -18,79 +25,82 @@ function M.requirePower()
   end
 end
 
-function M.high(targetFace, level)
+function M.high(connector, level)
   M.requirePower()
-  api().write(face.assertValid(targetFace), level or 1)
+  api().write(resolveConnector(connector), level or 1)
 end
 
-function M.low(targetFace)
+function M.low(connector)
   M.requirePower()
-  api().write(face.assertValid(targetFace), 0)
+  api().write(resolveConnector(connector), 0)
 end
 
-function M.pulseHigh(targetFace, tickCount, level)
+function M.pulseHigh(connector, tickCount, level)
   M.requirePower()
-  api().pulse(face.assertValid(targetFace), tickCount or 1, level or 1)
+  api().pulse(resolveConnector(connector), tickCount or 1, level or 1)
 end
 
-function M.readInput(targetFace)
-  return api().readInput(face.assertValid(targetFace))
+function M.readInput(connector)
+  return api().readInput(resolveConnector(connector))
 end
 
-function M.readOutput(targetFace)
-  return api().readOutput(face.assertValid(targetFace))
+function M.readOutput(connector)
+  return api().readOutput(resolveConnector(connector))
 end
 
-function M.isHigh(targetFace)
-  return api().isHigh(face.assertValid(targetFace))
+function M.isHigh(connector)
+  return api().isHigh(resolveConnector(connector))
 end
 
-function M.readLevel(targetFace)
-  return api().readLevel(face.assertValid(targetFace))
+function M.readLevel(connector)
+  return api().readLevel(resolveConnector(connector))
 end
 
 --- CC 风格别名：read 指邻侧输入。
 M.read = M.readInput
 
---- 读取六面输入，返回 { [face] = voltage }。
+--- 读取五路输入，返回 { [ElectricConnectorDirection] = voltage }。
 function M.readAllInputs()
   local values = {}
-  for i = 1, #face.ALL do
-    local f = face.ALL[i]
-    values[f] = M.readInput(f)
+  for i = 1, #electricConnectorDirection.ALL do
+    local connector = electricConnectorDirection.ALL[i]
+    values[connector] = M.readInput(connector)
   end
   return values
 end
 
---- 读取六面本机输出。
+--- 读取五路本机输出。
 function M.readAllOutputs()
   local values = {}
-  for i = 1, #face.ALL do
-    local f = face.ALL[i]
-    values[f] = M.readOutput(f)
+  for i = 1, #electricConnectorDirection.ALL do
+    local connector = electricConnectorDirection.ALL[i]
+    values[connector] = M.readOutput(connector)
   end
   return values
 end
 
---- 批量写输出；map 键为 face 编号。
+--- 批量写输出；map 键为 ElectricConnectorDirection 编号或名称。
 function M.writeAll(map)
   M.requirePower()
-  for f, voltage in pairs(map) do
-    api().write(face.assertValid(f), voltage)
+  for connector, voltage in pairs(map) do
+    api().write(resolveConnector(connector), voltage)
   end
 end
 
 function M.clearOutputs()
-  M.writeAll({ [0] = 0, [1] = 0, [2] = 0, [3] = 0, [4] = 0, [5] = 0 })
+  local cleared = {}
+  for i = 1, #electricConnectorDirection.ALL do
+    cleared[electricConnectorDirection.ALL[i]] = 0
+  end
+  M.writeAll(cleared)
 end
 
---- 等待某面输入变高；timeoutSeconds 默认 30，超时返回 false。
-function M.waitHigh(targetFace, timeoutSeconds)
-  targetFace = face.assertValid(targetFace)
+function M.waitHigh(connector, timeoutSeconds)
+  connector = resolveConnector(connector)
   timeoutSeconds = timeoutSeconds or 30
   local elapsed = 0
   local step = 0.05
-  while not api().isHigh(targetFace) do
+  while not api().isHigh(connector) do
     if elapsed >= timeoutSeconds then
       return false
     end
@@ -100,13 +110,12 @@ function M.waitHigh(targetFace, timeoutSeconds)
   return true
 end
 
---- 等待某面输入变低。
-function M.waitLow(targetFace, timeoutSeconds)
-  targetFace = face.assertValid(targetFace)
+function M.waitLow(connector, timeoutSeconds)
+  connector = resolveConnector(connector)
   timeoutSeconds = timeoutSeconds or 30
   local elapsed = 0
   local step = 0.05
-  while api().isHigh(targetFace) do
+  while api().isHigh(connector) do
     if elapsed >= timeoutSeconds then
       return false
     end
@@ -116,18 +125,15 @@ function M.waitLow(targetFace, timeoutSeconds)
   return true
 end
 
---- 格式化六面状态为一行，便于 terminal.print 调试。
 function M.formatSnapshot()
   local chunks = {}
-  for i = 1, #face.ALL do
-    local f = face.ALL[i]
-    local level = M.readLevel(f)
-    local out = M.readOutput(f)
+  for i = 1, #electricConnectorDirection.ALL do
+    local connector = electricConnectorDirection.ALL[i]
     chunks[#chunks + 1] = string.format(
       "%s in=%d out=%s",
-      face.name(f),
-      level,
-      util.formatPercent(out, 0)
+      electricConnectorDirection.name(connector),
+      M.readLevel(connector),
+      util.formatPercent(M.readOutput(connector), 0)
     )
   end
   return table.concat(chunks, " | ")
