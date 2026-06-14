@@ -21,8 +21,10 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
         m_subsystemBlockEntities = subsystemElectricity.Project.FindSubsystem<SubsystemBlockEntities>(throwOnError: true);
     }
 
-    public void QueueSimulation() {
-        SubsystemElectricity.QueueElectricElementForSimulation(this, SubsystemElectricity.CircuitStep + 1);
+    public int CircuitStep => SubsystemElectricity.CircuitStep;
+
+    public void QueueSimulation(int stepsFromNow = 1) {
+        SubsystemElectricity.QueueElectricElementForSimulation(this, SubsystemElectricity.CircuitStep + Math.Max(1, stepsFromNow));
     }
 
     public void QueueConnectedNeighbors() {
@@ -77,7 +79,7 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
         for (int apiFace = 0; apiFace < 6; apiFace++) {
             changed |= m_component.SetInputReading(apiFace, inputVoltages[apiFace]);
         }
-        m_component.AdvancePulses();
+        changed |= m_component.AdvancePulses(SubsystemElectricity.CircuitStep);
         return changed;
     }
 

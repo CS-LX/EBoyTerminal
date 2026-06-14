@@ -1,4 +1,5 @@
 using System.Globalization;
+using Engine;
 using Game;
 using GameEntitySystem;
 using MoonSharp.Interpreter;
@@ -14,14 +15,17 @@ namespace EBoyTerminal {
     public class ComponentMoonTerminalElectric : Component, ILuaScriptApiProvider {
         public const string OutputVoltagesKey = "ElectricOutputVoltages";
 
+        const int FaceCount = 6;
         const float VoltageEpsilon = 0.0001f;
 
-        readonly float[] m_inputVoltages = new float[6];
-        readonly float[] m_outputVoltages = new float[6];
-        readonly int[] m_pulseTicksRemaining = new int[6];
-        readonly float[] m_pulseReleaseVoltage = new float[6];
+        readonly float[] m_inputVoltages = new float[FaceCount];
+        readonly float[] m_stableOutputVoltages = new float[FaceCount];
+        readonly float[] m_pulseVoltages = new float[FaceCount];
+        readonly int[] m_pulseReleaseCircuitSteps = new int[FaceCount];
 
         ComponentMoonTerminal m_terminal = null!;
+        ComponentBlockEntity? m_blockEntity;
+        SubsystemElectricity? m_subsystemElectricity;
         MoonTerminalElectricElement? m_electricElement;
 
         public bool IsIoEnabled => Terminal.IsPowered;
@@ -31,6 +35,8 @@ namespace EBoyTerminal {
 
         public override void Load(ValuesDictionary valuesDictionary, IdToEntityMap idToEntityMap) {
             m_terminal = Entity.FindComponent<ComponentMoonTerminal>(throwOnError: true);
+            m_blockEntity = Entity.FindComponent<ComponentBlockEntity>(throwOnError: false);
+            m_subsystemElectricity = Project.FindSubsystem<SubsystemElectricity>(throwOnError: false);
             LoadOutputVoltages(valuesDictionary.GetValue(OutputVoltagesKey, string.Empty));
         }
 
@@ -43,14 +49,17 @@ namespace EBoyTerminal {
         }
 
         public float GetOutputVoltage(int face) {
-            if (face is < 0 or > 5 || !IsIoEnabled) {
+            if (!IsValidFace(face) || !IsIoEnabled) {
                 return 0f;
             }
-            return m_outputVoltages[face];
+            if (HasActivePulse(face)) {
+                 return m_pulseVoltages[face];
+            }
+            return m_stableOutputVoltages[face];
         }
 
         public bool SetInputReading(int face, float voltage) {
-            if (face is < 0 or > 5) {
+            if (!IsValidFace(face)) {
                 return false;
             }
             voltage = ClampVoltage(voltage);
@@ -63,7 +72,7 @@ namespace EBoyTerminal {
 
         public bool ClearInputReadings() {
             bool changed = false;
-            for (int face = 0; face < 6; face++) {
+            for (int face = 0; face < FaceCount; face++) {
                 if (m_inputVoltages[face] != 0f) {
                     m_inputVoltages[face] = 0f;
                     changed = true;
@@ -74,39 +83,33 @@ namespace EBoyTerminal {
 
         public void OnPowerLost() {
             ClearInputReadings();
-            ClearPulses();
             ClearOutputs();
             NotifyCircuitChanged();
         }
 
-        public void AdvancePulses() {
+        public bool AdvancePulses(int circuitStep) {
             if (!IsIoEnabled) {
-                return;
+                return false;
             }
             bool changed = false;
-            for (int face = 0; face < 6; face++) {
-                if (m_pulseTicksRemaining[face] <= 0) {
+            for (int face = 0; face < FaceCount; face++) {
+                int releaseStep = m_pulseReleaseCircuitSteps[face];
+                if (releaseStep <= 0 || circuitStep < releaseStep) {
                     continue;
                 }
-                m_pulseTicksRemaining[face]--;
-                if (m_pulseTicksRemaining[face] != 0) {
-                    continue;
+                float pulseVoltage = m_pulseVoltages[face];
+                m_pulseReleaseCircuitSteps[face] = 0;
+                m_pulseVoltages[face] = 0f;
+                if (Math.Abs(pulseVoltage - m_stableOutputVoltages[face]) > VoltageEpsilon) {
+                    changed = true;
                 }
-                float releaseVoltage = m_pulseReleaseVoltage[face];
-                if (Math.Abs(m_outputVoltages[face] - releaseVoltage) <= VoltageEpsilon) {
-                    continue;
-                }
-                m_outputVoltages[face] = releaseVoltage;
-                changed = true;
             }
-            if (changed) {
-                NotifyCircuitChanged();
-            }
+            return changed;
         }
 
         public bool TryReadInput(int face, out float voltage) {
             voltage = 0f;
-            if (face is < 0 or > 5) {
+            if (!IsValidFace(face)) {
                 return false;
             }
             if (IsIoEnabled) {
@@ -117,18 +120,18 @@ namespace EBoyTerminal {
 
         public bool TryReadOutput(int face, out float voltage) {
             voltage = 0f;
-            if (face is < 0 or > 5) {
+            if (!IsValidFace(face)) {
                 return false;
             }
             if (IsIoEnabled) {
-                voltage = m_outputVoltages[face];
+                voltage = GetOutputVoltage(face);
             }
             return true;
         }
 
         public bool TryWriteFace(int face, float voltage, out string? error) {
             error = null;
-            if (face is < 0 or > 5) {
+            if (!IsValidFace(face)) {
                 error = "face must be 0-5";
                 return false;
             }
@@ -137,18 +140,18 @@ namespace EBoyTerminal {
                 return false;
             }
             voltage = ClampVoltage(voltage);
+            float previousVoltage = GetOutputVoltage(face);
             CancelPulse(face);
-            if (Math.Abs(m_outputVoltages[face] - voltage) <= VoltageEpsilon) {
-                return true;
+            m_stableOutputVoltages[face] = voltage;
+            if (Math.Abs(previousVoltage - GetOutputVoltage(face)) > VoltageEpsilon) {
+                NotifyCircuitChanged();
             }
-            m_outputVoltages[face] = voltage;
-            NotifyCircuitChanged();
             return true;
         }
 
         public bool TryPulseFace(int face, float voltage, int ticks, out string? error) {
             error = null;
-            if (face is < 0 or > 5) {
+            if (!IsValidFace(face)) {
                 error = "face must be 0-5";
                 return false;
             }
@@ -160,15 +163,18 @@ namespace EBoyTerminal {
                 error = "terminal is unpowered";
                 return false;
             }
-            voltage = ClampVoltage(voltage);
-            m_pulseReleaseVoltage[face] = 0f;
-            m_pulseTicksRemaining[face] = ticks;
-            if (Math.Abs(m_outputVoltages[face] - voltage) <= VoltageEpsilon) {
-                NotifyCircuitChanged();
-                return true;
+            if (!TryBindElectricElement()) {
+                error = "electric element is not ready";
+                return false;
             }
-            m_outputVoltages[face] = voltage;
-            NotifyCircuitChanged();
+            voltage = ClampVoltage(voltage);
+            float previousVoltage = GetOutputVoltage(face);
+            m_pulseVoltages[face] = voltage;
+            m_pulseReleaseCircuitSteps[face] = m_electricElement!.CircuitStep + ticks + 1;
+            QueuePulseRelease(face);
+            if (Math.Abs(previousVoltage - voltage) > VoltageEpsilon) {
+                NotifyCircuitChanged();
+            }
             return true;
         }
 
@@ -252,7 +258,7 @@ namespace EBoyTerminal {
                 return false;
             }
             face = (int)args[index].Number;
-            if (face is < 0 or > 5) {
+            if (!IsValidFace(face)) {
                 error = "face must be 0-5";
                 return false;
             }
@@ -261,7 +267,7 @@ namespace EBoyTerminal {
 
         static DynValue BuildFaceTable(ScriptExecutionContext executionContext) {
             Table table = new(executionContext.OwnerScript);
-            for (int face = 0; face < 6; face++) {
+            for (int face = 0; face < FaceCount; face++) {
                 table.Set(face + 1, DynValue.NewNumber(face));
             }
             return DynValue.NewTable(table);
@@ -269,9 +275,9 @@ namespace EBoyTerminal {
 
         bool ClearOutputs() {
             bool changed = ClearPulses();
-            for (int face = 0; face < 6; face++) {
-                if (m_outputVoltages[face] != 0f) {
-                    m_outputVoltages[face] = 0f;
+            for (int face = 0; face < FaceCount; face++) {
+                if (m_stableOutputVoltages[face] != 0f) {
+                    m_stableOutputVoltages[face] = 0f;
                     changed = true;
                 }
             }
@@ -280,24 +286,26 @@ namespace EBoyTerminal {
 
         bool ClearPulses() {
             bool changed = false;
-            for (int face = 0; face < 6; face++) {
-                if (m_pulseTicksRemaining[face] == 0) {
+            for (int face = 0; face < FaceCount; face++) {
+                if (m_pulseReleaseCircuitSteps[face] == 0) {
                     continue;
                 }
-                m_pulseTicksRemaining[face] = 0;
-                m_pulseReleaseVoltage[face] = 0f;
-                changed = true;
+                if (Math.Abs(m_pulseVoltages[face] - m_stableOutputVoltages[face]) > VoltageEpsilon) {
+                    changed = true;
+                }
+                m_pulseReleaseCircuitSteps[face] = 0;
+                m_pulseVoltages[face] = 0f;
             }
             return changed;
         }
 
         void CancelPulse(int face) {
-            m_pulseTicksRemaining[face] = 0;
-            m_pulseReleaseVoltage[face] = 0f;
+            m_pulseReleaseCircuitSteps[face] = 0;
+            m_pulseVoltages[face] = 0f;
         }
 
         void LoadOutputVoltages(string serialized) {
-            Array.Clear(m_outputVoltages);
+            Array.Clear(m_stableOutputVoltages);
             if (string.IsNullOrWhiteSpace(serialized)) {
                 return;
             }
@@ -306,28 +314,60 @@ namespace EBoyTerminal {
                 if (parts.Length != 2
                     || !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int face)
                     || !float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float voltage)
-                    || face is < 0 or > 5) {
+                    || !IsValidFace(face)) {
                     continue;
                 }
-                m_outputVoltages[face] = ClampVoltage(voltage);
+                m_stableOutputVoltages[face] = ClampVoltage(voltage);
             }
         }
 
         string SerializeOutputVoltages() {
             List<string> segments = new();
-            for (int face = 0; face < 6; face++) {
-                if (m_outputVoltages[face] <= VoltageEpsilon) {
+            for (int face = 0; face < FaceCount; face++) {
+                if (m_stableOutputVoltages[face] <= VoltageEpsilon) {
                     continue;
                 }
-                segments.Add(string.Create(CultureInfo.InvariantCulture, $"{face}:{m_outputVoltages[face]:0.###}"));
+                segments.Add(string.Create(CultureInfo.InvariantCulture, $"{face}:{m_stableOutputVoltages[face]:0.###}"));
             }
             return string.Join(';', segments);
         }
 
         static float ClampVoltage(float voltage) => Math.Clamp(voltage, 0f, 1f);
 
+        static bool IsValidFace(int face) => face is >= 0 and < FaceCount;
+
+        bool HasActivePulse(int face) => m_pulseReleaseCircuitSteps[face] > 0;
+
+        bool TryBindElectricElement() {
+            if (m_electricElement != null) {
+                return true;
+            }
+            m_blockEntity ??= Entity.FindComponent<ComponentBlockEntity>(throwOnError: false);
+            m_subsystemElectricity ??= Project.FindSubsystem<SubsystemElectricity>(throwOnError: false);
+            if (m_blockEntity == null || m_subsystemElectricity == null) {
+                return false;
+            }
+            Point3 coordinates = m_blockEntity.Coordinates;
+            for (int face = 0; face < FaceCount; face++) {
+                if (m_subsystemElectricity.GetElectricElement(coordinates.X, coordinates.Y, coordinates.Z, face)
+                    is MoonTerminalElectricElement element) {
+                    BindElectricElement(element);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        void QueuePulseRelease(int face) {
+            if (!TryBindElectricElement()) {
+                return;
+            }
+            int delay = Math.Max(1, m_pulseReleaseCircuitSteps[face] - m_electricElement.CircuitStep);
+            m_electricElement.QueueSimulation(delay);
+        }
+
         void NotifyCircuitChanged() {
-            if (m_electricElement == null) {
+            if (!TryBindElectricElement()) {
                 return;
             }
             m_electricElement.QueueSimulation();
