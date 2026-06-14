@@ -6,11 +6,12 @@ namespace EBoyTerminal.System.Contributors;
 
 /// <summary>版本信息（对标 CC <c>os.version</c> / OC 组件版本查询）。</summary>
 public sealed class VersionLuaSystemApiContributor : ILuaSystemApiContributor {
-    public void Contribute(LuaSystemApiBuildContext context, IDictionary<string, DynValue> members) {
-        LuaScriptApiBuildContext api = context.ApiContext;
-        AddReader(members, "readGameVersion", api, static (_, _) => DynValue.NewString(ModsManager.ShortGameVersion));
-        AddReader(members, "readApiVersion", api, static (_, _) => DynValue.NewString(ModsManager.APIVersionString));
-        AddReader(members, "readTerminalModVersion", api, static (_, _) => DynValue.NewString(ResolveTerminalModVersion()));
+    public string ModuleName => "sys.version";
+
+    public void Contribute(LuaScriptApiBuildContext context, IDictionary<string, DynValue> members) {
+        AddReader(members, "readGameVersion", context, static (_, _) => DynValue.NewString(ModsManager.ShortGameVersion));
+        AddReader(members, "readApiVersion", context, static (_, _) => DynValue.NewString(ModsManager.APIVersionString));
+        AddReader(members, "readTerminalModVersion", context, static (_, _) => DynValue.NewString(ResolveTerminalModVersion()));
     }
 
     static void AddReader(

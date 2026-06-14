@@ -44,6 +44,7 @@ namespace EBoyTerminal {
                 ScriptHost = this,
                 Project = Project
             };
+            m_host.ResolveSystemModule = (moduleName, script) => LuaSystemApiRegistry.TryBuildModule(moduleName, context, script);
             List<Component>? components = Entity.Components;
             if (components != null) {
                 foreach (Component component in components) {

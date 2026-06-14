@@ -13,6 +13,9 @@ public sealed class LuaScriptHost {
     Script? m_script;
     Table? m_packageLoadedTable;
 
+    /// <summary>解析 C# 系统模块（<see cref="LuaSystemApiRegistry"/>）；由 <see cref="ComponentLuaScriptHost"/> 注入。</summary>
+    public Func<string, Script, DynValue?>? ResolveSystemModule { get; set; }
+
     public string? LastError => m_machine.LastError;
 
     public LuaMachine Machine => m_machine;
@@ -120,9 +123,19 @@ public sealed class LuaScriptHost {
             return cached;
         }
         string logical = moduleName.Replace('.', '/');
-        if (!TryLoadModuleSource(logical, out string source, out string chunkName)) {
-            throw new ScriptRuntimeException($"module '{moduleName}' not found");
+        if (TryLoadModuleSource(logical, out string source, out string chunkName)) {
+            return LoadAndCacheModule(script, moduleName, source, chunkName);
         }
+        DynValue? systemModule = ResolveSystemModule?.Invoke(moduleName, script);
+        if (systemModule != null) {
+            m_loadedModules[moduleName] = systemModule;
+            m_packageLoadedTable?.Set(moduleName, systemModule);
+            return systemModule;
+        }
+        throw new ScriptRuntimeException($"module '{moduleName}' not found");
+    }
+
+    DynValue LoadAndCacheModule(Script script, string moduleName, string source, string chunkName) {
         try {
             DynValue chunk = script.LoadString(source, null, chunkName);
             DynValue result = script.Call(chunk);

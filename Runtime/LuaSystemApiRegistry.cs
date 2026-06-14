@@ -6,10 +6,10 @@ using System.Reflection;
 namespace EBoyTerminal.Runtime;
 
 /// <summary>
-/// 系统级 Lua API 注册表：扫描各模组程序集中的 <see cref="ILuaSystemApiContributor"/> 实现并聚合为 <c>terminal.sys</c>。
+/// 系统级 Lua 模块注册表：扫描 <see cref="ILuaSystemApiContributor"/> 并由 <see cref="LuaScriptHost"/> 的 <c>require</c> 解析。
 /// </summary>
 public static class LuaSystemApiRegistry {
-    static readonly List<ILuaSystemApiContributor> s_contributors = [];
+    static readonly Dictionary<string, ILuaSystemApiContributor> s_contributors = new(StringComparer.Ordinal);
     static readonly List<Assembly> s_scannedAssemblies = [];
 
     public static void DiscoverContributors() {
@@ -39,9 +39,18 @@ public static class LuaSystemApiRegistry {
                 continue;
             }
             try {
-                if (Activator.CreateInstance(definedType.AsType()) is ILuaSystemApiContributor contributor) {
-                    s_contributors.Add(contributor);
+                if (Activator.CreateInstance(definedType.AsType()) is not ILuaSystemApiContributor contributor) {
+                    continue;
                 }
+                if (string.IsNullOrWhiteSpace(contributor.ModuleName)) {
+                    Log.Warning($"[EBoyTerminal] {definedType.FullName} has empty ModuleName, skipped");
+                    continue;
+                }
+                if (s_contributors.ContainsKey(contributor.ModuleName)) {
+                    Log.Warning($"[EBoyTerminal] duplicate system module '{contributor.ModuleName}' from {definedType.FullName}, skipped");
+                    continue;
+                }
+                s_contributors[contributor.ModuleName] = contributor;
             }
             catch (Exception ex) {
                 Log.Error($"[EBoyTerminal] failed to create {definedType.FullName}");
@@ -55,12 +64,18 @@ public static class LuaSystemApiRegistry {
         s_scannedAssemblies.Clear();
     }
 
-    public static IReadOnlyDictionary<string, DynValue> BuildMembers(LuaSystemApiBuildContext context) {
+    public static DynValue? TryBuildModule(string moduleName, LuaScriptApiBuildContext context, Script script) {
         ArgumentNullException.ThrowIfNull(context);
-        Dictionary<string, DynValue> members = new(StringComparer.Ordinal);
-        foreach (ILuaSystemApiContributor contributor in s_contributors) {
-            contributor.Contribute(context, members);
+        ArgumentNullException.ThrowIfNull(script);
+        if (!s_contributors.TryGetValue(moduleName, out ILuaSystemApiContributor? contributor)) {
+            return null;
         }
-        return members;
+        Dictionary<string, DynValue> members = new(StringComparer.Ordinal);
+        contributor.Contribute(context, members);
+        Table table = new(script);
+        foreach ((string key, DynValue value) in members) {
+            table.Set(key, value);
+        }
+        return DynValue.NewTable(table);
     }
 }

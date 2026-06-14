@@ -24,10 +24,11 @@ terminal.print("=== EBoyTerminal Smoke Test ===")
 
 if terminal.electric.isEnabled() then ok("electric.isEnabled powered") else bad("electric.isEnabled powered") end
 
-if terminal.sys.readGameVersion() and terminal.sys.readApiVersion() then
-  ok("sys.readGameVersion/readApiVersion")
+local sysVersion = require "sys.version"
+if sysVersion.readGameVersion() and sysVersion.readApiVersion() then
+  ok("sys.version.readGameVersion/readApiVersion")
 else
-  bad("sys.readGameVersion/readApiVersion")
+  bad("sys.version.readGameVersion/readApiVersion")
 end
 
 local faces = terminal.electric.listFaces()
