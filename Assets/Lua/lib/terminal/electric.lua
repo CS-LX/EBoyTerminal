@@ -41,9 +41,13 @@ function M.requirePower()
   end
 end
 
-function M.high(connector, level)
+function M.write(connector, level)
   M.requirePower()
-  api().write(resolveConnector(connector), level or 1)
+  api().write(resolveConnector(connector), level or 0)
+end
+
+function M.high(connector, level)
+  M.write(connector, level or 1)
 end
 
 function M.low(connector)
