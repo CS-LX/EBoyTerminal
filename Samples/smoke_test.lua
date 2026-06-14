@@ -1,4 +1,5 @@
--- EBoyTerminal API 冒烟测试（含 electric，面索引 0-5 = SC CellFace）
+-- EBoyTerminal API 冒烟测试（含 electric）
+-- face 0-5 = 终端自身 CellFace（非邻块面）：0 +Z, 1 +X, 2 -Z, 3 -X, 4 +Y顶, 5 -Y底
 -- 连 CRT、供电后粘贴运行；末尾 SMOKE OK 即通过。
 
 local pass, fail, skip = 0, 0, 0

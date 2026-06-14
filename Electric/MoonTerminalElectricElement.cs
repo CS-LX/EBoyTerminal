@@ -4,6 +4,10 @@ using GameEntitySystem;
 
 namespace EBoyTerminal.Electric;
 
+/// <summary>
+/// 月之终端电路元素。Lua/API 与贴图/接线柱共用 SC CellFace；
+/// 电路 <see cref="ElectricConnection.CellFace"/>.Face 与接线面相差 <see cref="CellFace.OppositeFace"/>，此处统一转换。
+/// </summary>
 public sealed class MoonTerminalElectricElement : ElectricElement {
     readonly Point3 m_point;
 
@@ -42,12 +46,12 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
         if (m_component == null) {
             return 0f;
         }
-        if (m_connectorFaceToCellFace.TryGetValue(connectorFace, out int cellFace)) {
-            return m_component.GetOutputVoltage(cellFace);
+        if (m_connectorFaceToCellFace.TryGetValue(connectorFace, out int connectionFace)) {
+            return m_component.GetOutputVoltage(ToApiFace(connectionFace));
         }
         foreach (ElectricConnection connection in Connections) {
             if (connection.ConnectorFace == connectorFace) {
-                return m_component.GetOutputVoltage(connection.CellFace.Face);
+                return m_component.GetOutputVoltage(ToApiFace(connection.CellFace.Face));
             }
         }
         return 0f;
@@ -62,10 +66,11 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
             return m_component.ClearInputReadings();
         }
         bool changed = false;
-        for (int face = 0; face < 6; face++) {
+        for (int apiFace = 0; apiFace < 6; apiFace++) {
+            int connectionFace = ToConnectionFace(apiFace);
             float voltage = 0f;
             foreach (ElectricConnection connection in Connections) {
-                if (connection.CellFace.Face != face) {
+                if (connection.CellFace.Face != connectionFace) {
                     continue;
                 }
                 if (connection.ConnectorType == ElectricConnectorType.Output
@@ -76,7 +81,7 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
                     voltage,
                     connection.NeighborElectricElement.GetOutputVoltage(connection.NeighborConnectorFace));
             }
-            changed |= m_component.SetInputReading(face, voltage);
+            changed |= m_component.SetInputReading(apiFace, voltage);
         }
         m_component.AdvancePulses();
         return changed;
@@ -103,4 +108,9 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
             yield return new CellFace(x, y, z, face);
         }
     }
+
+    /// <summary>电路 connection.CellFace → Lua/贴图 CellFace（六面均为 OppositeFace）。</summary>
+    internal static int ToApiFace(int connectionCellFace) => CellFace.OppositeFace(connectionCellFace);
+
+    static int ToConnectionFace(int apiFace) => CellFace.OppositeFace(apiFace);
 }

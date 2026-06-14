@@ -9,7 +9,7 @@ using EBoyTerminal.VoltNet;
 namespace EBoyTerminal {
     /// <summary>
     /// 月之终端方块；材质来自 <see cref="EBoyTerminalLoader.BlockTexture"/>。
-    /// 槽位：顶 0、侧/背 1、底 2、正面 3。电路面索引见 SC CellFace（0–5）。
+    /// 槽位：顶 0、侧/背 1、底 2、正面 3。电路 face 0–5 为 SC CellFace（见原版 CellFace.m_faceToVector3）。
     /// </summary>
     public class MoonTerminalBlock : CubeBlock, IVoltDevice, IElectricElementBlock {
         public static int Index = 550;

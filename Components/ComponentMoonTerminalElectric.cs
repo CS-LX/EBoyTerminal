@@ -7,7 +7,10 @@ using EBoyTerminal.Electric;
 using EBoyTerminal.Runtime;
 
 namespace EBoyTerminal {
-    /// <summary>月之终端逻辑电路 IO（CellFace 0–5）与 <c>terminal.electric.*</c> Lua API。</summary>
+    /// <summary>
+    /// 月之终端逻辑电路 IO。Lua/API 的 <c>face</c> 与贴图/接线柱 CellFace 一致；
+    /// 电路 connection 面在 <see cref="MoonTerminalElectricElement"/> 内经 OppositeFace 映射后再读写。
+    /// </summary>
     public class ComponentMoonTerminalElectric : Component, ILuaScriptApiProvider {
         public const string OutputVoltagesKey = "ElectricOutputVoltages";
 
