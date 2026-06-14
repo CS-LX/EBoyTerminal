@@ -13,8 +13,6 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
 
     readonly SubsystemBlockEntities m_subsystemBlockEntities;
 
-    readonly Dictionary<int, int> m_connectorFaceToCellFace = new();
-
     ComponentMoonTerminalElectric? m_component;
 
     public MoonTerminalElectricElement(SubsystemElectricity subsystemElectricity, int x, int y, int z)
@@ -33,21 +31,21 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
 
     public override void OnAdded() {
         base.OnAdded();
-        RebuildConnectorMap();
+        QueueSimulation();
     }
 
     public override void OnConnectionsChanged() {
         base.OnConnectionsChanged();
-        RebuildConnectorMap();
+        if (m_component != null) {
+            m_component.ClearInputReadings();
+        }
+        QueueSimulation();
     }
 
     public override float GetOutputVoltage(int connectorFace) {
         EnsureComponent();
         if (m_component == null) {
             return 0f;
-        }
-        if (m_connectorFaceToCellFace.TryGetValue(connectorFace, out int connectionFace)) {
-            return m_component.GetOutputVoltage(ToApiFace(connectionFace));
         }
         foreach (ElectricConnection connection in Connections) {
             if (connection.ConnectorFace == connectorFace) {
@@ -66,32 +64,21 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
             return m_component.ClearInputReadings();
         }
         bool changed = false;
-        for (int apiFace = 0; apiFace < 6; apiFace++) {
-            int connectionFace = ToConnectionFace(apiFace);
-            float voltage = 0f;
-            foreach (ElectricConnection connection in Connections) {
-                if (connection.CellFace.Face != connectionFace) {
-                    continue;
-                }
-                if (connection.ConnectorType == ElectricConnectorType.Output
-                    || connection.NeighborConnectorType == 0) {
-                    continue;
-                }
-                voltage = Math.Max(
-                    voltage,
-                    connection.NeighborElectricElement.GetOutputVoltage(connection.NeighborConnectorFace));
+        Span<float> inputVoltages = stackalloc float[6];
+        foreach (ElectricConnection connection in Connections) {
+            if (!CanReadInputFromNeighbor(connection.ConnectorType, connection.NeighborConnectorType)) {
+                continue;
             }
-            changed |= m_component.SetInputReading(apiFace, voltage);
+            int apiFace = ToApiFace(connection.CellFace.Face);
+            inputVoltages[apiFace] = Math.Max(
+                inputVoltages[apiFace],
+                connection.NeighborElectricElement.GetOutputVoltage(connection.NeighborConnectorFace));
+        }
+        for (int apiFace = 0; apiFace < 6; apiFace++) {
+            changed |= m_component.SetInputReading(apiFace, inputVoltages[apiFace]);
         }
         m_component.AdvancePulses();
         return changed;
-    }
-
-    void RebuildConnectorMap() {
-        m_connectorFaceToCellFace.Clear();
-        foreach (ElectricConnection connection in Connections) {
-            m_connectorFaceToCellFace[connection.ConnectorFace] = connection.CellFace.Face;
-        }
     }
 
     void EnsureComponent() {
@@ -112,5 +99,7 @@ public sealed class MoonTerminalElectricElement : ElectricElement {
     /// <summary>电路 connection.CellFace → Lua/贴图 CellFace（六面均为 OppositeFace）。</summary>
     internal static int ToApiFace(int connectionCellFace) => CellFace.OppositeFace(connectionCellFace);
 
-    static int ToConnectionFace(int apiFace) => CellFace.OppositeFace(apiFace);
+    internal static bool CanReadInputFromNeighbor(ElectricConnectorType connectorType, ElectricConnectorType neighborConnectorType)
+        => connectorType != ElectricConnectorType.Output
+            && neighborConnectorType != ElectricConnectorType.Input;
 }
