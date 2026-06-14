@@ -10,6 +10,7 @@ using SCIENEW.Utils;
 using TemplatesDatabase;
 using EBoyTerminal.Runtime;
 using EBoyTerminal.Terminal;
+using EBoyTerminal.Utils;
 using Screen = SCIENEW.Screens.Screen;
 
 namespace EBoyTerminal {
@@ -39,9 +40,7 @@ namespace EBoyTerminal {
                 ["isLinked"] = context.Callback((_, _) => DynValue.NewBoolean(resolver.GetSnapshot().IsLinked)),
                 ["countRows"] = context.Callback((_, _) => DynValue.NewNumber(GetMetric(resolver, static snapshot => snapshot.Rows))),
                 ["countColumns"] = context.Callback((_, _) => DynValue.NewNumber(GetMetric(resolver, static snapshot => snapshot.Columns))),
-                ["readPosition"] = context.Callback((executionContext, _) =>
-                    ToVectorTable(executionContext, resolver.GetSnapshot().Position)),
-            });
+                ["readPosition"] = context.Callback((executionContext, _) => LuaUtils.NewVector3(executionContext.OwnerScript, resolver.GetSnapshot().Position)) });
         }
 
         public void Draw(Screen screen, Project project, Camera camera, int drawOrder) {
@@ -74,14 +73,6 @@ namespace EBoyTerminal {
         static double GetMetric(TerminalScreenResolver resolver, Func<TerminalScreenSnapshot, int> selector) {
             TerminalScreenSnapshot snapshot = resolver.GetSnapshot();
             return snapshot.IsLinked ? selector(snapshot) : 0d;
-        }
-
-        static DynValue ToVectorTable(ScriptExecutionContext executionContext, Vector3 vector) {
-            Table table = new(executionContext.OwnerScript);
-            table.Set("x", DynValue.NewNumber(vector.X));
-            table.Set("y", DynValue.NewNumber(vector.Y));
-            table.Set("z", DynValue.NewNumber(vector.Z));
-            return DynValue.NewTable(table);
         }
     }
 }
