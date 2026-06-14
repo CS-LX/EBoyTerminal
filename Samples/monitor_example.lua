@@ -1,4 +1,5 @@
 --- 示例：世界监控 + 电路快照（粘贴到月之终端运行，需供电）。
+--- 电路侧可用 electric.top / "top" / electric.T，不必写 ElectricConnectorDirection。
 local log = require("lib.log")
 local world = require("lib.sys.world")
 local electric = require("lib.terminal.electric")

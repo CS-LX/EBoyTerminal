@@ -12,7 +12,7 @@ M.modules = {
   "lib.test",
   "lib.sys.world",
   "lib.sys.version",
-  "lib.terminal.electric_connector_direction",
+  "lib.terminal.dir",
   "lib.terminal.electric",
   "lib.terminal.screen",
 }

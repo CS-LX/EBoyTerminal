@@ -1,8 +1,8 @@
 -- EBoyTerminal API 冒烟测试（含 electric）
--- ElectricConnectorDirection：0 Top, 1 Left, 2 Bottom, 3 Right, 4 In
+-- 接线侧：e.top / e.t / "top" / 0（对应宿主 ElectricConnectorDirection）
 -- 连 CRT、供电后粘贴运行；末尾 SMOKE OK 即通过。
 
-local ECD = require("lib.terminal.electric_connector_direction")
+local e = require("lib.terminal.electric")
 
 local pass, fail, skip = 0, 0, 0
 
@@ -34,22 +34,28 @@ else
 end
 
 local connectors = terminal.electric.listDirections()
-if type(connectors) == "table" and #connectors == 5 and connectors[1] == ECD.Top and connectors[5] == ECD.In then
+if type(connectors) == "table" and #connectors == 5 and connectors[1] == e.top and connectors[5] == e.in_ then
   ok("electric.listDirections()")
 else
   bad("electric.listDirections()", "count=" .. tostring(#connectors))
 end
 
-local wrote, writeErr = pcall(function() terminal.electric.write(ECD.Top, 1) end)
+local wrote, writeErr = pcall(function() terminal.electric.write(e.top, 1) end)
 if wrote then
-  ok("electric.write(Top,1)")
-  terminal.electric.write(ECD.Top, 0)
+  ok("electric.write(top,1)")
+  terminal.electric.write(e.top, 0)
 else
-  bad("electric.write(Top,1)", writeErr)
+  bad("electric.write(top,1)", writeErr)
 end
 
 local pulsed, pulseErr = pcall(function() terminal.electric.pulse("top", 2) end)
 if pulsed then ok("electric.pulse('top',2)") else bad("electric.pulse('top',2)", pulseErr) end
+
+if e.parse("right") == e.r and e.name(e.in_) == "in" then
+  ok("electric.parse/name")
+else
+  bad("electric.parse/name")
+end
 
 terminal.print(string.format("RESULT: %d pass, %d fail, %d skip", pass, fail, skip))
 if fail == 0 then terminal.print("SMOKE OK") else terminal.print("SMOKE FAILED") end
