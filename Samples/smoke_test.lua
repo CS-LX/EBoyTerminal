@@ -24,6 +24,12 @@ terminal.print("=== EBoyTerminal Smoke Test ===")
 
 if terminal.electric.isEnabled() then ok("electric.isEnabled powered") else bad("electric.isEnabled powered") end
 
+if terminal.sys.readGameVersion() and terminal.sys.readApiVersion() then
+  ok("sys.readGameVersion/readApiVersion")
+else
+  bad("sys.readGameVersion/readApiVersion")
+end
+
 local faces = terminal.electric.listFaces()
 if type(faces) == "table" and #faces == 6 and faces[1] == 0 and faces[6] == 5 then
   ok("electric.listFaces()")

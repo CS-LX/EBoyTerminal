@@ -22,6 +22,9 @@ public sealed class LuaScriptApiBuildContext {
             try {
                 return handler(context, args);
             }
+            catch (ScriptRuntimeException) {
+                throw;
+            }
             catch (Exception ex) {
                 string message = ex is InterpreterException interpreterException
                     ? interpreterException.DecoratedMessage ?? interpreterException.Message

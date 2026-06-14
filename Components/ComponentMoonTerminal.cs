@@ -163,7 +163,13 @@ namespace EBoyTerminal {
                 return DynValue.Nil;
             }));
             context.AddMember("countLines", context.Callback((_, _) => DynValue.NewNumber(OutputLines.Count)));
-            context.AddMember("direction", DynValue.NewNumber(MoonTerminalBlock.GetFacing(m_subsystemVoltNet.m_subsystemTerrain.Terrain.GetCellValue(m_blockEntity.Coordinates))));
+            context.AddMember("direction", context.Callback((_, _) => {
+                if (m_subsystemVoltNet?.m_subsystemTerrain == null || m_blockEntity == null) {
+                    return DynValue.NewNumber(0d);
+                }
+                int value = m_subsystemVoltNet.m_subsystemTerrain.Terrain.GetCellValue(m_blockEntity.Coordinates);
+                return DynValue.NewNumber(MoonTerminalBlock.GetFacing(value));
+            }));
         }
 
         void PushScriptToHost() {

@@ -15,6 +15,9 @@
 			<MemberComponentTemplate Name="MoonTerminalElectric" Guid="eb0f0006-7c4a-4b1e-9f2a-6d8e5f0a1b2c" InheritanceParent="b05700ed-7e4e-4679-98f5-b597f421496b">
 				<Parameter Name="Class" Guid="eb0f0006-1a2b-4c3d-8e5f-901234567890" Value="EBoyTerminal.ComponentMoonTerminalElectric" Type="string" />
 			</MemberComponentTemplate>
+			<MemberComponentTemplate Name="MoonTerminalSystemProvider" Guid="eb0f0007-7c4a-4b1e-9f2a-6d8e5f0a1b2c" InheritanceParent="b05700ed-7e4e-4679-98f5-b597f421496b">
+				<Parameter Name="Class" Guid="eb0f0007-1a2b-4c3d-8e5f-901234567890" Value="EBoyTerminal.ComponentMoonTerminalSystemProvider" Type="string" />
+			</MemberComponentTemplate>
 		</EntityTemplate>
 	</Folder>
 	<!-- 与宿主 / IE2 共用 Project Guid，MemberSubsystemTemplate 才会并入世界 Project -->
