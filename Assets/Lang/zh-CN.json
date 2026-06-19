@@ -10,8 +10,14 @@
       "1": "月之终端",
       "2": "输出",
       "3": "展开",
+      "AutoRun": "通电自动运行",
       "OutputExpand": "展开",
       "OutputCollapse": "收起"
+    }
+  },
+  "IECraftingRecipes": {
+    "Descriptions": {
+      "MoonTerminal": "将 TEDC、CRT 监视器与真值表集成，组装可编程月之终端。"
     }
   },
   "Components": {

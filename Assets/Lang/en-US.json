@@ -10,8 +10,14 @@
       "1": "Moon Terminal",
       "2": "Output",
       "3": "Expand",
+      "AutoRun": "Auto-run when powered",
       "OutputExpand": "Expand",
       "OutputCollapse": "Collapse"
+    }
+  },
+  "IECraftingRecipes": {
+    "Descriptions": {
+      "MoonTerminal": "Integrate TEDC, CRT monitor and truth table into a programmable moon terminal."
     }
   },
   "Components": {

@@ -9,6 +9,7 @@ namespace EBoyTerminal {
     public class ComponentMoonTerminal : Component, IUpdateable, ILuaScriptApiProvider {
         public const string ScriptTextKey = "ScriptText";
         public const string MaxOutputLinesKey = "MaxOutputLines";
+        public const string AutoRunOnPowerKey = "AutoRunOnPower";
         public const int DefaultMaxOutputLines = 512;
         public const int DialogOutputLineCount = 32;
 
@@ -24,6 +25,7 @@ namespace EBoyTerminal {
         MoonTerminalScriptDialog? m_openDialog;
         WorkState m_workState = WorkState.Underpowered;
         bool m_wasPowered;
+        bool m_pendingAutoRun;
 
         public UpdateOrder UpdateOrder => UpdateOrder.Default;
 
@@ -49,6 +51,9 @@ namespace EBoyTerminal {
 
         public bool IsPowered => m_workState == WorkState.Active;
 
+        /// <summary>有电时自动运行脚本（读档、恢复供电时触发；手动停止后需再次掉电上电才会重跑）。</summary>
+        public bool AutoRunOnPower { get; private set; }
+
         /// <summary>输出缓冲最多保留的行数；屏上实际可见行数由 Screen 尺寸动态决定。</summary>
         public int MaxOutputLines { get; private set; } = DefaultMaxOutputLines;
 
@@ -58,20 +63,32 @@ namespace EBoyTerminal {
             m_subsystemVoltNet = Project.FindSubsystem<SubsystemVoltNet>(throwOnError: true);
             m_scriptText = valuesDictionary.GetValue(ScriptTextKey, string.Empty);
             MaxOutputLines = Math.Max(1, valuesDictionary.GetValue(MaxOutputLinesKey, DefaultMaxOutputLines));
+            AutoRunOnPower = valuesDictionary.GetValue(AutoRunOnPowerKey, false);
             PushScriptToHost();
             RefreshWorkState();
             m_wasPowered = IsPowered;
+            m_pendingAutoRun = ShouldAutoRun();
         }
 
         public override void Save(ValuesDictionary valuesDictionary, EntityToIdMap entityToIdMap) {
             valuesDictionary.SetValue(ScriptTextKey, m_scriptText);
             valuesDictionary.SetValue(MaxOutputLinesKey, MaxOutputLines);
+            valuesDictionary.SetValue(AutoRunOnPowerKey, AutoRunOnPower);
         }
 
         public void SetOpenDialog(MoonTerminalScriptDialog? dialog) => m_openDialog = dialog;
 
+        public void SetAutoRunOnPower(bool enabled) => AutoRunOnPower = enabled;
+
         public void Update(float dt) {
             RefreshWorkState();
+            if (m_pendingAutoRun) {
+                m_pendingAutoRun = false;
+                TryAutoStartScript();
+            }
+            else if (!m_wasPowered && IsPowered) {
+                TryAutoStartScript();
+            }
             if (m_wasPowered && !IsPowered) {
                 HandlePowerLost();
             }
@@ -87,6 +104,20 @@ namespace EBoyTerminal {
             Entity.FindComponent<ComponentMoonTerminalElectric>(throwOnError: false)?.OnPowerLost();
             StopScript();
             m_openDialog?.CloseDueToPowerLoss();
+        }
+
+        bool ShouldAutoRun() =>
+            AutoRunOnPower && IsPowered && !string.IsNullOrWhiteSpace(m_scriptText);
+
+        void TryAutoStartScript() {
+            if (!ShouldAutoRun()) {
+                return;
+            }
+            LuaMachineState state = LuaState;
+            if (state is not (LuaMachineState.Ready or LuaMachineState.Stopped)) {
+                return;
+            }
+            StartScript();
         }
 
         /// <summary>取缓冲末尾最多 <paramref name="maxDisplayLines"/> 行，类似终端滚动区。</summary>

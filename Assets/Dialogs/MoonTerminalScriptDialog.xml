@@ -34,6 +34,10 @@
 			<RectangleWidget OutlineColor="0, 0, 0, 0" FillColor="0, 0, 0, 102" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Size="Infinity, Infinity"/>
 			<LuaCodeBoxWidget xmlns="runtime-namespace:EBoyTerminal" Name="ScriptText" Color="255, 255, 255, 255" Margin="12, 8" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" MaximumLength="32768"/>
 		</CanvasWidget>
+		<CanvasWidget Size="Infinity, 28" HorizontalAlignment="Stretch" VerticalAlignment="Near">
+			<RectangleWidget OutlineColor="0, 0, 0, 0" FillColor="0, 0, 0, 102" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Size="Infinity, Infinity"/>
+			<CheckboxWidget Name="AutoRunCheckbox" Text="[MoonTerminalScriptDialog:AutoRun]" Color="200, 200, 200, 255" Margin="12, 0" VerticalAlignment="Center" HorizontalAlignment="Near"/>
+		</CanvasWidget>
 		<StackPanelWidget Name="OutputSection" Direction="Vertical" HorizontalAlignment="Stretch" VerticalAlignment="Near">
 			<CanvasWidget Size="Infinity, 28" HorizontalAlignment="Stretch" VerticalAlignment="Near">
 				<RectangleWidget OutlineColor="0, 0, 0, 0" FillColor="0, 0, 0, 140" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Size="Infinity, Infinity"/>

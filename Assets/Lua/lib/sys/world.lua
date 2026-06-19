@@ -14,6 +14,17 @@ function M.getIsPrecipitating() return raw.getIsPrecipitating() end
 function M.getPrecipitationIntensity() return raw.getPrecipitationIntensity() end
 function M.getTickSeconds() return raw.getTickSeconds() end
 
+M.readWorldName = M.getWorldName
+M.readWorldSeed = M.getWorldSeed
+M.readGameMode = M.getGameMode
+M.readElapsedSeconds = M.getElapsedSeconds
+M.readDay = M.getDay
+M.readTimeOfDay = M.getTimeOfDay
+M.readSeason = M.getSeason
+M.readIsPrecipitating = M.getIsPrecipitating
+M.readPrecipitationIntensity = M.getPrecipitationIntensity
+M.readTickSeconds = M.getTickSeconds
+
 --- 将 0–1 的 TimeOfDay 格式化为 24 小时制 HH:MM。
 function M.formatClock(timeOfDay)
   local tod = timeOfDay

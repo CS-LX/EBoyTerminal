@@ -1,0 +1,9 @@
+<Recipes>
+	<!-- 后期工控计算机：TEDC + CRT + 真值表 + 高级电路，对标 AutoGun / CRT 等多行配方 -->
+	<Recipe Result="MoonTerminalBlock" ResultCount="1" Remains="N-AdvancedMechanicalShell" RemainsCount="1" RequiredHeatLevel="0" a="D-TEDCDevice" b="D-CRTMonitorDevice" c="truthtablecircuit" d="I-AdvancedCircuit" e="I-CopperWire" f="N-AdvancedMechanicalShell" g="H-PbSO4Battery" h="I-Capacitor" i="memorybank" Description="[MoonTerminal]">
+		"fbhbf"
+		"cadif"
+		"ehghe"
+		"eeeee"
+	</Recipe>
+</Recipes>

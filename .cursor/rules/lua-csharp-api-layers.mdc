@@ -1,0 +1,62 @@
+---
+description: EBoyTerminal Lua 表层与 C# 底层 API 边界；禁止为迎合 Lua 别名污染 Contributor
+globs: "**/*.{cs,lua}"
+alwaysApply: false
+---
+
+# Lua 表层 / C# 底层 API 分层
+
+EBoyTerminal 脚本 API 分两层，**职责不可混用**。
+
+## 分层
+
+| 层 | 位置 | 职责 | 命名 |
+|----|------|------|------|
+| **底层** | C# `ILuaSystemApiContributor`、`Component` 的 `ILuaScriptApiProvider` | 绑定宿主/实体能力，最小表面积 | `get*` / 动词原形（`set`、`clear`） |
+| **表层** | `Assets/Lua/lib/**` | CC/OC 风格别名、格式化、组合 helper | `read*` 别名、`formatClock`、`snapshot` 等 |
+
+```
+require("sys.version")     → C# Contributor 直出（仅 get*）
+require("lib.sys.version") → Lua 封装（get* + read* + label）
+```
+
+`terminal.*` 同理：C# 注册核心能力；`Assets/Lua/lib/terminal/*.lua` 做友好封装。
+
+## 禁止
+
+- **禁止**在 `*LuaSystemApiContributor.cs` 或 Component API 里为 CC 风格 **`read*`** 再注册一份与 `get*` 重复的 C# 回调。
+- **禁止**因 Sample、冒烟脚本或测试直接 `require("sys.xxx")` 却调用 `read*`，而去改底层 Contributor。
+
+## 正确修复路径
+
+1. 玩家脚本 / Sample → 改用 `require("lib.sys.version")` 等 **lib 路径**，或调用底层 **`get*`**。
+2. 缺 `read*` 或格式化 → 改 **`Assets/Lua/lib/**`**，不要改 C#。
+3. 单元测试：
+   - `LuaSystemApiRegistry` / Contributor → 断言 **`get*`**；
+   - 运行时 `require("lib.*")` → 断言 **`read*`** 与 helper。
+
+## 反例（已发生）
+
+```lua
+-- 错误：sys.version 是 C# 模块，没有 readGameVersion
+local v = require("sys.version")
+v.readGameVersion()  -- attempt to call a nil value
+```
+
+```csharp
+// 错误：为迎合上面脚本，在 VersionLuaSystemApiContributor 重复注册 read*
+LuaRuntimeHelpers.AddContributorReader(members, "readGameVersion", ...);
+```
+
+## 正例
+
+```lua
+local v = require("lib.sys.version")
+v.readGameVersion()  -- 表层别名 → 内部调 raw.getGameVersion()
+```
+
+## Agent 自检
+
+- [ ] 新增 CC 风格别名是否只落在 `Assets/Lua/lib/`？
+- [ ] Contributor 是否仍只有 `get*` / 必要动词，无重复 `read*`？
+- [ ] Sample 与测试是否 `require` 了正确的模块路径？

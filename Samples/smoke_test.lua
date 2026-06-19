@@ -26,11 +26,11 @@ terminal.print("=== EBoyTerminal Smoke Test ===")
 
 if terminal.electric.isEnabled() then ok("electric.isEnabled powered") else bad("electric.isEnabled powered") end
 
-local sysVersion = require "sys.version"
+local sysVersion = require("lib.sys.version")
 if sysVersion.readGameVersion() and sysVersion.readApiVersion() then
-  ok("sys.version.readGameVersion/readApiVersion")
+  ok("lib.sys.version.readGameVersion/readApiVersion")
 else
-  bad("sys.version.readGameVersion/readApiVersion")
+  bad("lib.sys.version.readGameVersion/readApiVersion")
 end
 
 local connectors = terminal.electric.listDirections()

@@ -46,6 +46,8 @@ namespace EBoyTerminal {
 
         ClickableWidget m_outputToggleButton;
 
+        CheckboxWidget m_autoRunCheckbox;
+
         public MoonTerminalScriptDialog(ComponentMoonTerminal component, ComponentPlayer? player) {
             m_component = component;
             m_player = player;
@@ -64,6 +66,7 @@ namespace EBoyTerminal {
             m_stopButton = Children.Find<ClickableWidget>("StopButton");
             m_closeButton = Children.Find<ClickableWidget>("CloseButton");
             m_outputToggleButton = Children.Find<ClickableWidget>("OutputToggleButton");
+            m_autoRunCheckbox = Children.Find<CheckboxWidget>("AutoRunCheckbox");
             m_baseTitle = m_titleWidget.Text;
             m_scriptText.Font = IndustrialModLoader.PixelFont;
             m_scriptText.TextureLinearFilter = false;
@@ -81,6 +84,7 @@ namespace EBoyTerminal {
             m_outputText.FontScale = 1f;
             m_outputText.TextureLinearFilter = false;
             m_outputText.Text = string.Empty;
+            m_autoRunCheckbox.IsChecked = component.AutoRunOnPower;
             SetOutputExpanded(expanded: false);
             m_component.SetOpenDialog(this);
             m_previousLuaState = m_component.LuaState;
@@ -108,6 +112,10 @@ namespace EBoyTerminal {
                 SetOutputExpanded(!m_outputExpanded);
             }
             else if (m_saveButton.IsClicked) {
+                Save();
+            }
+            else if (m_autoRunCheckbox.IsClicked) {
+                m_component.SetAutoRunOnPower(m_autoRunCheckbox.IsChecked);
                 Save();
             }
             else if (m_runButton.IsClicked) {
@@ -184,6 +192,7 @@ namespace EBoyTerminal {
         void Save() {
             m_savedText = m_scriptText.Text;
             m_component.ScriptText = m_savedText;
+            m_component.SetAutoRunOnPower(m_autoRunCheckbox.IsChecked);
             SyncOutputPanel(forceScroll: true);
         }
 

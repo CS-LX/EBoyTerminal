@@ -40,6 +40,7 @@
 | `Runtime/LuaMachine.cs` | 协作式 Lua 虚拟机：`Load` / `Start` / `Stop` / `Tick`，含 `spawn` / `print`；延迟使用 MoonSharp 原生 `coroutine.yield(seconds)` 或 `coroutine.yield("ticks", n)` |
 | `Components/ComponentLuaScriptHost.cs` | 实体级 Lua 运行时 Component |
 | `Components/ComponentMoonTerminal.cs` | 月之终端：脚本持久化 + 组合 `ComponentLuaScriptHost` |
+| `Components/ComponentMoonTerminalStorage.cs` | 月之终端键值存储（`terminal.storage`） |
 | `Components/ComponentMoonTerminalScreenProvider.cs` | 月之终端屏幕输出（`IScreenProviderComponent`，左上角绘字） |
 | `Peripherals/` | IE2 设备外设接口与注册表 |
 | `Blocks/MoonTerminalBlock.cs` | 月之终端占位方块（箱子外观 + 铁块属性） |
