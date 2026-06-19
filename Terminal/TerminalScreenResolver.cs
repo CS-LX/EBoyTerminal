@@ -35,9 +35,9 @@ public sealed class TerminalScreenResolver {
             return new TerminalScreenSnapshot(false, 0, 0, terminalPosition);
         }
 
-        Vector3 position = container.GetPosition();
-        if (!TryGetPrimaryScreen(m_project, container, position, out Screen screen)) {
-            return new TerminalScreenSnapshot(true, 0, 0, position);
+        Vector3 containerPosition = container.GetPosition();
+        if (!TryResolveMetricScreen(m_project, container, terminalPosition, containerPosition, out Screen screen)) {
+            return new TerminalScreenSnapshot(true, 0, 0, containerPosition);
         }
 
         BitmapFont font = IndustrialModLoader.PixelFont;
@@ -45,7 +45,7 @@ public sealed class TerminalScreenResolver {
             true,
             TerminalScreenLayout.CalculateRows(screen, font),
             TerminalScreenLayout.CalculateColumns(screen, font),
-            position);
+            containerPosition);
     }
 
     Vector3 GetTerminalPosition() {
@@ -58,6 +58,23 @@ public sealed class TerminalScreenResolver {
     void EnsureServices() {
         m_provider ??= m_terminal.Entity.FindComponent<ComponentMoonTerminalScreenProvider>(throwOnError: false);
         m_subsystemScreens ??= m_project.FindSubsystem<SubsystemScreens>(throwOnError: false);
+    }
+
+    static bool TryResolveMetricScreen(
+        Project project,
+        IScreenContainerComponent container,
+        Vector3 terminalPosition,
+        Vector3 containerPosition,
+        out Screen screen) {
+        if (TryGetPrimaryScreen(project, container, terminalPosition, out screen)
+            || TryGetPrimaryScreen(project, container, containerPosition, out screen)) {
+            return true;
+        }
+        return container switch {
+            ComponentCRTMonitor crt => crt.TryGetMetricScreen(out screen),
+            ComponentLEDScreen led => led.TryGetMetricScreen(out screen),
+            _ => false
+        };
     }
 
     static bool TryGetPrimaryScreen(Project project, IScreenContainerComponent container, Vector3 nearPosition, out Screen screen) {

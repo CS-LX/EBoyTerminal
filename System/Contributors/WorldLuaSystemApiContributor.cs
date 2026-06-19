@@ -12,24 +12,16 @@ public sealed class WorldLuaSystemApiContributor : ILuaSystemApiContributor {
     public void Contribute(LuaScriptApiBuildContext context, IDictionary<string, DynValue> members) {
         Project project = context.Project;
 
-        AddReader(members, "getWorldName", context, (_, _) => DynValue.NewString(ReadWorldName(project)));
-        AddReader(members, "getWorldSeed", context, (_, _) => DynValue.NewNumber(ReadWorldSeed(project)));
-        AddReader(members, "getGameMode", context, (_, _) => DynValue.NewString(ReadGameMode(project)));
-        AddReader(members, "getElapsedSeconds", context, (_, _) => DynValue.NewNumber(ReadElapsedSeconds(project)));
-        AddReader(members, "getDay", context, (_, _) => DynValue.NewNumber(ReadDay(project)));
-        AddReader(members, "getTimeOfDay", context, (_, _) => DynValue.NewNumber(ReadTimeOfDay(project)));
-        AddReader(members, "getSeason", context, (_, _) => DynValue.NewString(ReadSeason(project)));
-        AddReader(members, "getIsPrecipitating", context, (_, _) => DynValue.NewBoolean(ReadIsPrecipitating(project)));
-        AddReader(members, "getPrecipitationIntensity", context, (_, _) => DynValue.NewNumber(ReadPrecipitationIntensity(project)));
-        AddReader(members, "getTickSeconds", context, (_, _) => DynValue.NewNumber(ReadTickSeconds(project)));
-    }
-
-    static void AddReader(
-        IDictionary<string, DynValue> members,
-        string name,
-        LuaScriptApiBuildContext api,
-        Func<ScriptExecutionContext, CallbackArguments, DynValue> handler) {
-        members[name] = api.Callback(handler);
+        LuaRuntimeHelpers.AddContributorReader(members, "getWorldName", context, (_, _) => DynValue.NewString(ReadWorldName(project)));
+        LuaRuntimeHelpers.AddContributorReader(members, "getWorldSeed", context, (_, _) => DynValue.NewNumber(ReadWorldSeed(project)));
+        LuaRuntimeHelpers.AddContributorReader(members, "getGameMode", context, (_, _) => DynValue.NewString(ReadGameMode(project)));
+        LuaRuntimeHelpers.AddContributorReader(members, "getElapsedSeconds", context, (_, _) => DynValue.NewNumber(ReadElapsedSeconds(project)));
+        LuaRuntimeHelpers.AddContributorReader(members, "getDay", context, (_, _) => DynValue.NewNumber(ReadDay(project)));
+        LuaRuntimeHelpers.AddContributorReader(members, "getTimeOfDay", context, (_, _) => DynValue.NewNumber(ReadTimeOfDay(project)));
+        LuaRuntimeHelpers.AddContributorReader(members, "getSeason", context, (_, _) => DynValue.NewString(ReadSeason(project)));
+        LuaRuntimeHelpers.AddContributorReader(members, "getIsPrecipitating", context, (_, _) => DynValue.NewBoolean(ReadIsPrecipitating(project)));
+        LuaRuntimeHelpers.AddContributorReader(members, "getPrecipitationIntensity", context, (_, _) => DynValue.NewNumber(ReadPrecipitationIntensity(project)));
+        LuaRuntimeHelpers.AddContributorReader(members, "getTickSeconds", context, (_, _) => DynValue.NewNumber(ReadTickSeconds(project)));
     }
 
     static SubsystemGameInfo? FindGameInfo(Project project) =>

@@ -184,50 +184,16 @@ namespace EBoyTerminal {
         public void ContributeLuaApi(LuaScriptApiBuildContext context) {
             context.AddSubTable("electric", new Dictionary<string, DynValue> {
                 ["listDirections"] = context.Callback((executionContext, _) => BuildDirectionTable(executionContext)),
-                ["readInput"] = context.Callback((_, args) => {
-                    if (!TryParseDirectionArg(args, 0, out ElectricConnectorDirection direction, out string? error)) {
-                        throw new ScriptRuntimeException(error ?? "invalid direction");
-                    }
-                    if (!TryReadInput(direction, out float voltage)) {
-                        throw new ScriptRuntimeException("invalid direction");
-                    }
-                    return DynValue.NewNumber(voltage);
-                }),
-                ["readOutput"] = context.Callback((_, args) => {
-                    if (!TryParseDirectionArg(args, 0, out ElectricConnectorDirection direction, out string? error)) {
-                        throw new ScriptRuntimeException(error ?? "invalid direction");
-                    }
-                    if (!TryReadOutput(direction, out float voltage)) {
-                        throw new ScriptRuntimeException("invalid direction");
-                    }
-                    return DynValue.NewNumber(voltage);
-                }),
-                ["isHigh"] = context.Callback((_, args) => {
-                    if (!TryParseDirectionArg(args, 0, out ElectricConnectorDirection direction, out string? error)) {
-                        throw new ScriptRuntimeException(error ?? "invalid direction");
-                    }
-                    if (!TryReadInput(direction, out float voltage)) {
-                        throw new ScriptRuntimeException("invalid direction");
-                    }
-                    return DynValue.NewBoolean(ElectricElement.IsSignalHigh(voltage));
-                }),
-                ["readLevel"] = context.Callback((_, args) => {
-                    if (!TryParseDirectionArg(args, 0, out ElectricConnectorDirection direction, out string? error)) {
-                        throw new ScriptRuntimeException(error ?? "invalid direction");
-                    }
-                    if (!TryReadInput(direction, out float voltage)) {
-                        throw new ScriptRuntimeException("invalid direction");
-                    }
-                    return DynValue.NewNumber((int)MathF.Round(voltage * 15f));
-                }),
+                ["readInput"] = context.Callback((_, args) => DynValue.NewNumber(ReadInputVoltageOrThrow(args, 0))),
+                ["readOutput"] = context.Callback((_, args) => DynValue.NewNumber(ReadOutputVoltageOrThrow(args, 0))),
+                ["isHigh"] = context.Callback((_, args) => DynValue.NewBoolean(ElectricElement.IsSignalHigh(ReadInputVoltageOrThrow(args, 0)))),
+                ["readLevel"] = context.Callback((_, args) => DynValue.NewNumber((int)MathF.Round(ReadInputVoltageOrThrow(args, 0) * 15f))),
                 ["write"] = context.Callback((_, args) => {
                     if (args.Count < 2) {
                         throw new ScriptRuntimeException("electric.write(direction, value) requires direction and value");
                     }
-                    if (!TryParseDirectionArg(args, 0, out ElectricConnectorDirection direction, out string? error)) {
-                        throw new ScriptRuntimeException(error ?? "invalid direction");
-                    }
-                    if (!TryWriteDirection(direction, (float)args[1].Number, out error)) {
+                    ElectricConnectorDirection direction = ParseDirectionArgOrThrow(args, 0);
+                    if (!TryWriteDirection(direction, (float)args[1].Number, out string? error)) {
                         throw new ScriptRuntimeException(error ?? "invalid direction");
                     }
                     return DynValue.Nil;
@@ -236,17 +202,38 @@ namespace EBoyTerminal {
                     if (args.Count < 2) {
                         throw new ScriptRuntimeException("electric.pulse(direction, ticks[, value]) requires direction and ticks");
                     }
-                    if (!TryParseDirectionArg(args, 0, out ElectricConnectorDirection direction, out string? error)) {
-                        throw new ScriptRuntimeException(error ?? "invalid direction");
-                    }
+                    ElectricConnectorDirection direction = ParseDirectionArgOrThrow(args, 0);
                     float voltage = args.Count >= 3 ? (float)args[2].Number : 1f;
-                    if (!TryPulseDirection(direction, voltage, (int)args[1].Number, out error)) {
+                    if (!TryPulseDirection(direction, voltage, (int)args[1].Number, out string? error)) {
                         throw new ScriptRuntimeException(error ?? "invalid direction");
                     }
                     return DynValue.Nil;
                 }),
                 ["isEnabled"] = context.Callback((_, _) => DynValue.NewBoolean(IsIoEnabled)),
             });
+        }
+
+        ElectricConnectorDirection ParseDirectionArgOrThrow(CallbackArguments args, int index) {
+            if (!TryParseDirectionArg(args, index, out ElectricConnectorDirection direction, out string? error)) {
+                throw new ScriptRuntimeException(error ?? "invalid direction");
+            }
+            return direction;
+        }
+
+        float ReadInputVoltageOrThrow(CallbackArguments args, int index) {
+            ElectricConnectorDirection direction = ParseDirectionArgOrThrow(args, index);
+            if (!TryReadInput(direction, out float voltage)) {
+                throw new ScriptRuntimeException("invalid direction");
+            }
+            return voltage;
+        }
+
+        float ReadOutputVoltageOrThrow(CallbackArguments args, int index) {
+            ElectricConnectorDirection direction = ParseDirectionArgOrThrow(args, index);
+            if (!TryReadOutput(direction, out float voltage)) {
+                throw new ScriptRuntimeException("invalid direction");
+            }
+            return voltage;
         }
 
         static bool TryParseDirectionArg(CallbackArguments args, int index, out ElectricConnectorDirection direction, out string? error) {

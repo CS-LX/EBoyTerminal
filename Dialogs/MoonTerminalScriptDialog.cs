@@ -111,10 +111,6 @@ namespace EBoyTerminal {
                 Save();
             }
             else if (m_runButton.IsClicked) {
-                if (!m_component.IsPowered) {
-                    ShowNoPowerMessage();
-                    return;
-                }
                 Save();
                 SetOutputExpanded(expanded: true);
                 if (!m_component.StartScript()) {
@@ -135,10 +131,7 @@ namespace EBoyTerminal {
 
         void HandleLuaStateTransitions() {
             LuaMachineState state = m_component.LuaState;
-            if (state == LuaMachineState.Running && m_previousLuaState != LuaMachineState.Running) {
-                SetOutputExpanded(expanded: true);
-            }
-            if (state == LuaMachineState.Error && m_previousLuaState != LuaMachineState.Error) {
+            if (state != m_previousLuaState && state is LuaMachineState.Running or LuaMachineState.Error) {
                 SetOutputExpanded(expanded: true);
             }
             m_previousLuaState = state;
@@ -153,7 +146,7 @@ namespace EBoyTerminal {
         }
 
         void SyncOutputPanel(bool forceScroll) {
-            string output = m_component.GetDialogOutputText();
+            string output = m_component.GetScreenText(ComponentMoonTerminal.DialogOutputLineCount);
             if (output != m_lastSyncedOutput) {
                 m_lastSyncedOutput = output;
                 m_outputText.Text = string.IsNullOrEmpty(output) ? string.Empty : output;
@@ -186,14 +179,6 @@ namespace EBoyTerminal {
                 blinking: true,
                 playNotificationSound: true);
             Dismiss();
-        }
-
-        void ShowNoPowerMessage() {
-            m_player?.ComponentGui.DisplaySmallMessage(
-                LanguageUtils.GetText(m_component, "NoPowerInteract"),
-                Color.White,
-                blinking: true,
-                playNotificationSound: true);
         }
 
         void Save() {

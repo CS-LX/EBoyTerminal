@@ -54,14 +54,10 @@ public sealed class LuaMachine {
         ApplyGlobal(name);
     }
 
-    public void SetTable(string name, IReadOnlyDictionary<string, DynValue> members) {
-        SetTable(name, members, null);
-    }
-
     public void SetTable(
         string name,
         IReadOnlyDictionary<string, DynValue> members,
-        IReadOnlyDictionary<string, IReadOnlyDictionary<string, DynValue>>? subTables) {
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, DynValue>>? subTables = null) {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         Dictionary<string, DynValue> memberCopy = new(members);
         Dictionary<string, IReadOnlyDictionary<string, DynValue>> subTableCopy = subTables != null
@@ -116,7 +112,7 @@ public sealed class LuaMachine {
             return LastError == null;
         }
         catch (Exception ex) {
-            ReportCompileError(FormatException(ex));
+            ReportCompileError(LuaRuntimeHelpers.FormatException(ex));
             return false;
         }
     }
@@ -220,7 +216,7 @@ public sealed class LuaMachine {
             ProcessResumeResult(ref entry, result);
         }
         catch (Exception ex) {
-            ReportRuntimeError(FormatException(ex));
+            ReportRuntimeError(LuaRuntimeHelpers.FormatException(ex));
         }
     }
 
@@ -280,11 +276,6 @@ public sealed class LuaMachine {
         Fail();
     }
 
-    static string FormatException(Exception ex) => ex switch {
-        InterpreterException interpreterException => interpreterException.DecoratedMessage ?? interpreterException.Message,
-        _ => ex.Message
-    };
-
     void RemoveEntry(CoroutineEntry entry) {
         for (int i = m_entries.Count - 1; i >= 0; i--) {
             if (ReferenceEquals(m_entries[i].Handle, entry.Handle)) {
@@ -327,7 +318,7 @@ public sealed class LuaMachine {
             return DynValue.Nil;
         }
         catch (Exception ex) {
-            ReportRuntimeError(FormatException(ex));
+            ReportRuntimeError(LuaRuntimeHelpers.FormatException(ex));
             return DynValue.Nil;
         }
     }
@@ -343,7 +334,7 @@ public sealed class LuaMachine {
             return DynValue.Nil;
         }
         catch (Exception ex) {
-            ReportRuntimeError(FormatException(ex));
+            ReportRuntimeError(LuaRuntimeHelpers.FormatException(ex));
             return DynValue.Nil;
         }
     }

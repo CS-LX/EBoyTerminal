@@ -65,6 +65,8 @@ public sealed class LuaScriptHost {
         m_machine.Tick(dt);
     }
 
+    public void ReportRuntimeError(string message) => m_machine.ReportRuntimeError(message);
+
     public bool TryExecute(string source, out DynValue? result, string? chunkName = null) {
         result = null;
         try {
@@ -76,8 +78,7 @@ public sealed class LuaScriptHost {
             return true;
         }
         catch (Exception ex) {
-            string message = FormatException(ex);
-            m_machine.ReportRuntimeError(message);
+            ReportRuntimeError(LuaRuntimeHelpers.FormatException(ex));
             return false;
         }
     }
@@ -194,9 +195,4 @@ public sealed class LuaScriptHost {
     }
 
     static Script CreateScript() => new(CoreModules.Preset_SoftSandbox);
-
-    static string FormatException(Exception ex) => ex switch {
-        InterpreterException interpreterException => interpreterException.DecoratedMessage ?? interpreterException.Message,
-        _ => ex.Message
-    };
 }

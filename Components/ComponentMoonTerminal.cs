@@ -99,9 +99,6 @@ namespace EBoyTerminal {
             return string.Join("\n", m_outputLines.Skip(start));
         }
 
-        /// <summary>脚本对话框输出区：保留末尾 <see cref="DialogOutputLineCount"/> 行。</summary>
-        public string GetDialogOutputText() => GetScreenText(DialogOutputLineCount);
-
         public void ClearOutput() => m_outputLines.Clear();
 
         public void AppendOutput(string text) {
@@ -138,12 +135,14 @@ namespace EBoyTerminal {
             }
         }
 
-        public void WireScriptHost() {
+        void PushScriptToHost() {
             if (m_luaScriptHost == null) {
                 return;
             }
+            m_lastReportedError = null;
             m_luaScriptHost.Host.OnOutput = AppendOutput;
             m_luaScriptHost.Host.OnError = AppendError;
+            m_luaScriptHost.ReloadFromSource(m_scriptText);
         }
 
         public void ContributeLuaApi(LuaScriptApiBuildContext context) {
@@ -170,15 +169,6 @@ namespace EBoyTerminal {
                 int value = m_subsystemVoltNet.m_subsystemTerrain.Terrain.GetCellValue(m_blockEntity.Coordinates);
                 return DynValue.NewNumber(MoonTerminalBlock.GetFacing(value));
             }));
-        }
-
-        void PushScriptToHost() {
-            if (m_luaScriptHost == null) {
-                return;
-            }
-            m_lastReportedError = null;
-            WireScriptHost();
-            m_luaScriptHost.ReloadFromSource(m_scriptText);
         }
 
         public void EnsureLastErrorVisible() {

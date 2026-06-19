@@ -26,10 +26,7 @@ public sealed class LuaScriptApiBuildContext {
                 throw;
             }
             catch (Exception ex) {
-                string message = ex is InterpreterException interpreterException
-                    ? interpreterException.DecoratedMessage ?? interpreterException.Message
-                    : ex.Message;
-                ScriptHost.Host.Machine.ReportRuntimeError(message);
+                ScriptHost.Host.ReportRuntimeError(LuaRuntimeHelpers.FormatException(ex));
                 return DynValue.Nil;
             }
         });
