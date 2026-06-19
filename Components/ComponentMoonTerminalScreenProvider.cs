@@ -27,7 +27,7 @@ namespace EBoyTerminal {
             m_blockEntity = Entity.FindComponent<ComponentBlockEntity>(throwOnError: true);
             m_terminal = Entity.FindComponent<ComponentMoonTerminal>(throwOnError: true);
             m_font = IndustrialModLoader.PixelFont;
-            m_fontBatch3D = m_primitivesRenderer3D.FontBatch(m_font, 0);
+            m_fontBatch3D = m_primitivesRenderer3D.FontBatch(m_font, 0, null, Screen.FontRasterizerState);
         }
 
         public void ContributeLuaApi(LuaScriptApiBuildContext context) {
