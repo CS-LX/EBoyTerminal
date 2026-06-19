@@ -12,7 +12,7 @@ public static class TerminalScreenLayout {
 
     public static int CalculateRows(Screen screen, BitmapFont font) {
         float screenHeight = (screen.WorldPos4 - screen.WorldPos1).Length();
-        float lineHeight = (font.GlyphHeight + font.Spacing.Y) * font.Scale * TextScale * screen.Edge2.Length();
+        float lineHeight = (font.GlyphHeight + font.Spacing.Y) * font.Scale * TextScale * (screen.Up.LengthSquared() > 0f ? 1f : 0f);
         if (lineHeight <= 0f) {
             return 1;
         }
@@ -21,7 +21,7 @@ public static class TerminalScreenLayout {
 
     public static int CalculateColumns(Screen screen, BitmapFont font) {
         float screenWidth = (screen.WorldPos2 - screen.WorldPos1).Length();
-        float horizontalScale = TextScale * screen.Edge1.Length();
+        float horizontalScale = TextScale * (screen.Right.LengthSquared() > 0f ? 1f : 0f);
         if (screenWidth <= 0f || horizontalScale <= 0f) {
             return 1;
         }
@@ -34,7 +34,7 @@ public static class TerminalScreenLayout {
             return text;
         }
         float screenWidth = (screen.WorldPos2 - screen.WorldPos1).Length();
-        float horizontalScale = TextScale * screen.Edge1.Length();
+        float horizontalScale = TextScale * (screen.Right.LengthSquared() > 0f ? 1f : 0f);
         string[] lines = text.Split('\n');
         for (int i = 0; i < lines.Length; i++) {
             string line = lines[i];

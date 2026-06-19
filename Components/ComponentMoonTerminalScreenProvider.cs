@@ -55,8 +55,9 @@ namespace EBoyTerminal {
             if (string.IsNullOrEmpty(text)) {
                 return;
             }
-            Vector3 right = TerminalScreenLayout.TextScale * -screen.Edge1;
-            Vector3 down = TerminalScreenLayout.TextScale * -screen.Edge2;
+            screen.GetTextAxes(TerminalScreenLayout.TextScale, out Vector3 textRight, out Vector3 textDown);
+            Vector3 right = -textRight;
+            Vector3 down = textDown;
             // CRT 四角：1 左下、2 右下、3 右上、4 左上。配合 -Edge1/-Edge2 时，从 WorldPos3 起笔才是视觉上的左上→右下排版，勿改成 WorldPos4。
             m_fontBatch3D.QueueText(text, screen.WorldPos3, right, down, Color.Green, default);
             m_primitivesRenderer3D.Flush(camera.ViewProjectionMatrix);
