@@ -10,7 +10,7 @@ namespace EBoyTerminal {
     /// <summary>
     /// 月之终端方块。正面（<see cref="GetFacing"/>）为屏幕无接线；其余五向为宿主 <see cref="ElectricConnectorDirection"/> 相对 IO。
     /// </summary>
-    public class MoonTerminalBlock : CubeBlock, IVoltDevice, IElectricElementBlock {
+    public class MoonTerminalBlock : CubeBlock, IVoltDevice, IElectricElementBlock, IRotatableDevice {
         public static int Index = 550;
 
         const int SlotTop = 0;
@@ -76,6 +76,12 @@ namespace EBoyTerminal {
         public static int GetFacing(int value) => Terrain.ExtractData(value) & 3;
 
         public static int GetDirection(int value) => CellFace.OppositeFace(GetFacing(value));
+
+        public int GetNextDirection(int value, bool reverse = false) {
+            int facing = GetFacing(value);
+            facing = reverse ? (facing + 3) % 4 : (facing + 1) % 4;
+            return Terrain.ReplaceData(value, (Terrain.ExtractData(value) & ~3) | facing);
+        }
 
         public override BlockPlacementData GetPlacementValue(SubsystemTerrain subsystemTerrain,
             ComponentMiner componentMiner,
