@@ -8,6 +8,6 @@
   "Author": "嘉豪",
   "PackageName": "com.eboy.terminal",
   "Dependencies": {
-    "com.IndustrialEra2": "1.0-Open Beta"
+    "com.IndustrialEra2": "1.0.0.0"
   }
 }
