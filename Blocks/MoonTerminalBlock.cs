@@ -10,7 +10,7 @@ namespace EBoyTerminal {
     /// <summary>
     /// 月之终端方块。正面（<see cref="GetFacing"/>）为屏幕无接线；其余五向为宿主 <see cref="ElectricConnectorDirection"/> 相对 IO。
     /// </summary>
-    public class MoonTerminalBlock : CubeBlock, IVoltDevice, IElectricElementBlock, IRotatableDevice {
+    public class MoonTerminalBlock : CubeBlock, IVoltDevice, IElectricElementBlock, IRotatableDevice, IElectricDrillRemovable {
         public static int Index = 550;
 
         const int SlotTop = 0;
