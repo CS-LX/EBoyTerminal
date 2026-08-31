@@ -22,7 +22,7 @@
 
   <ItemGroup>
     <PackageReference Include="MoonSharp" Version="2.0.0" GeneratePathProperty="true" />
-    <PackageReference Include="SurvivalcraftAPI.Survivalcraft" Version="1.9.2" />
+    <PackageReference Include="SurvivalcraftAPI.Survivalcraft" Version="1.9.3.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -92,7 +92,7 @@
     </None>
   </ItemGroup>
 
-  <Target Name="PackMod" AfterTargets="Build" Condition="'$(EboyTerminalSkipPack)' != 'true'">
+  <Target Name="PackMod" AfterTargets="Build" Condition="'$(Configuration)' != 'Test' and '$(EboyTerminalSkipPack)' != 'true'">
     <PropertyGroup>
       <_TargetDirSafe>$(TargetDir.TrimEnd('\'))</_TargetDirSafe>
     </PropertyGroup>
