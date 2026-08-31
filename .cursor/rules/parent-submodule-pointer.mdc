@@ -49,6 +49,6 @@ modified:   Addons/EBoyTerminal
 - **禁止** 为「同步子模块指针」单独 push 主仓
 - 本模组代码已在 EBoyTerminal 仓库 push 即可
 
-## 与主仓 game-source.mdc 的关系
+## 与主仓 AGENTS.md 的关系
 
-主仓 `.cursor/rules/game-source.mdc` 对附属模组有相同倾向说明；本文件为 **EBoyTerminal 专用、可随子模块克隆带走** 的明确规则，冲突时以「本模组在子仓库提交」为准。
+主仓 `AGENTS.md` 对附属模组有相同倾向说明；本文件为 **EBoyTerminal 专用、可随子模块克隆带走** 的明确规则，冲突时以「本模组在子仓库提交」为准。
